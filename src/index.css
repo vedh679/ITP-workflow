@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 font-sans;
+  }
+}
+
+/* ReactFlow custom styles */
+.react-flow__node-taskNode {
+  border-radius: 8px;
+}
