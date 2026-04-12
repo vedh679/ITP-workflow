@@ -64,6 +64,8 @@ const SAMPLE_TASKS: Task[] = [
     id: 'task1',
     name: 'Building A — Level 3 ITP',
     description: 'Inspection and test plan for Building A, Level 3',
+    location: 'Building A, Level 3',
+    dueDate: '2026-05-01',
     assignedTo: 'vedh@itp.com',
     status: 'in-progress',
     checklists: [
@@ -87,6 +89,8 @@ const SAMPLE_TASKS: Task[] = [
     id: 'task2',
     name: 'Substation Electrical ITP',
     description: 'Electrical systems test for substation installation',
+    location: 'Site B — Substation',
+    dueDate: '2026-06-15',
     assignedTo: 'admin@itp.com',
     status: 'pending',
     checklists: [],

@@ -40,6 +40,8 @@ export interface Task {
   id: string
   name: string
   description: string
+  location: string
+  dueDate: string       // ISO date string (date only)
   assignedTo: string
   status: 'pending' | 'in-progress' | 'completed'
   checklists: TaskChecklist[]
