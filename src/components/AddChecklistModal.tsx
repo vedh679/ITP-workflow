@@ -2,9 +2,11 @@ import { useState } from 'react'
 import type { ChecklistTemplate } from '../types'
 
 const USERS = [
-  { email: 'admin@itp.com', name: 'Admin User' },
-  { email: 'vedh@itp.com', name: 'Vedh' },
-  { email: 'inspector@itp.com', name: 'Site Inspector' },
+  { email: 'admin@itp.com', name: 'Admin User', role: 'admin' },
+  { email: 'manager@itp.com', name: 'Project Manager', role: 'manager' },
+  { email: 'vedh@itp.com', name: 'Vedh', role: 'manager' },
+  { email: 'inspector@itp.com', name: 'Site Inspector', role: 'engineer' },
+  { email: 'engineer@itp.com', name: 'Field Engineer', role: 'engineer' },
 ]
 
 interface Props {

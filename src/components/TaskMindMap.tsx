@@ -211,9 +211,10 @@ interface Props {
   task: Task
   onAddChecklist: (taskId: string) => void
   onOpenChecklist: (checklistId: string) => void
+  canEdit?: boolean
 }
 
-export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist }: Props) {
+export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, canEdit = true }: Props) {
   const { initialNodes, initialEdges } = useMemo(() => {
     const SPACING_Y = 110
     const ROOT_X = 60
@@ -274,26 +275,28 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist }: P
       })
     })
 
-    // Add button
-    const addY = checklists.length * SPACING_Y
-    nodes.push({
-      id: 'add-node',
-      type: 'addNode',
-      position: { x: CHECKLIST_X, y: addY },
-      data: { taskId: task.id, onAdd: onAddChecklist } as AddNodeData,
-      draggable: false,
-    })
-    edges.push({
-      id: 'e-add',
-      source: 'root',
-      target: 'add-node',
-      type: 'treeEdge',
-      data: { trunkX: TRUNK_X, dashed: true } as TreeEdgeData,
-      style: { stroke: '#334155', strokeWidth: 1.5 },
-    })
+    // Add button — only visible to admins and managers
+    if (canEdit) {
+      const addY = checklists.length * SPACING_Y
+      nodes.push({
+        id: 'add-node',
+        type: 'addNode',
+        position: { x: CHECKLIST_X, y: addY },
+        data: { taskId: task.id, onAdd: onAddChecklist } as AddNodeData,
+        draggable: false,
+      })
+      edges.push({
+        id: 'e-add',
+        source: 'root',
+        target: 'add-node',
+        type: 'treeEdge',
+        data: { trunkX: TRUNK_X, dashed: true } as TreeEdgeData,
+        style: { stroke: '#334155', strokeWidth: 1.5 },
+      })
+    }
 
     return { initialNodes: nodes, initialEdges: edges }
-  }, [task, onOpenChecklist, onAddChecklist])
+  }, [task, onOpenChecklist, onAddChecklist, canEdit])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)

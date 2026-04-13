@@ -30,7 +30,9 @@ export default function HomePage() {
             <p className="text-xs text-blue-300">{currentUser.email}</p>
           </div>
           <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold ${
-            currentUser.role === 'admin' ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'
+            currentUser.role === 'admin' ? 'bg-purple-500 text-white' :
+            currentUser.role === 'manager' ? 'bg-blue-500 text-white' :
+            'bg-green-600 text-white'
           }`}>
             {currentUser.name.charAt(0).toUpperCase()}
           </div>
@@ -66,7 +68,9 @@ export default function HomePage() {
             </div>
             <div className="text-center">
               <h2 className="text-xl font-bold text-white">Tasks</h2>
-              <p className="text-blue-300 text-sm mt-1">View & manage inspection tasks</p>
+              <p className="text-blue-300 text-sm mt-1">
+                {currentUser.role === 'engineer' ? 'View tasks & complete checklists' : 'View & manage inspection tasks'}
+              </p>
             </div>
             <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-b-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
           </button>

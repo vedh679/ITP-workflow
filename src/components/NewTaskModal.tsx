@@ -2,9 +2,11 @@ import { useState } from 'react'
 import type { Task } from '../types'
 
 const USERS = [
-  { email: 'admin@itp.com', name: 'Admin User' },
-  { email: 'vedh@itp.com', name: 'Vedh' },
-  { email: 'inspector@itp.com', name: 'Site Inspector' },
+  { email: 'admin@itp.com', name: 'Admin User', role: 'admin' },
+  { email: 'manager@itp.com', name: 'Project Manager', role: 'manager' },
+  { email: 'vedh@itp.com', name: 'Vedh', role: 'manager' },
+  { email: 'inspector@itp.com', name: 'Site Inspector', role: 'engineer' },
+  { email: 'engineer@itp.com', name: 'Field Engineer', role: 'engineer' },
 ]
 
 type TaskFields = Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status'>
@@ -136,8 +138,15 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
                     <div className="w-8 h-8 rounded-full bg-blue-600/30 text-blue-300 flex items-center justify-center text-sm font-bold flex-shrink-0">
                       {u.name.charAt(0)}
                     </div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-slate-200">{u.name}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-slate-200">{u.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
+                          u.role === 'admin' ? 'bg-purple-900/50 text-purple-300' :
+                          u.role === 'manager' ? 'bg-blue-900/50 text-blue-300' :
+                          'bg-green-900/50 text-green-300'
+                        }`}>{u.role}</span>
+                      </div>
                       <div className="text-xs text-slate-500">{u.email}</div>
                     </div>
                     {assignedTo === u.email && (

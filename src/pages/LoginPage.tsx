@@ -5,8 +5,10 @@ import type { User } from '../types'
 
 const TEST_USERS: User[] = [
   { email: 'admin@itp.com', name: 'Admin User', role: 'admin' },
-  { email: 'vedh@itp.com', name: 'Vedh', role: 'user' },
-  { email: 'inspector@itp.com', name: 'Site Inspector', role: 'user' },
+  { email: 'manager@itp.com', name: 'Project Manager', role: 'manager' },
+  { email: 'vedh@itp.com', name: 'Vedh', role: 'manager' },
+  { email: 'inspector@itp.com', name: 'Site Inspector', role: 'engineer' },
+  { email: 'engineer@itp.com', name: 'Field Engineer', role: 'engineer' },
 ]
 
 export default function LoginPage() {
@@ -22,7 +24,7 @@ export default function LoginPage() {
       setCurrentUser(user)
       navigate('/home')
     } else {
-      setError('Email not found. Try: admin@itp.com, vedh@itp.com, or inspector@itp.com')
+      setError('Email not found. Try one of the test accounts below.')
     }
   }
 
@@ -92,7 +94,9 @@ export default function LoginPage() {
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                     u.role === 'admin'
                       ? 'bg-purple-100 text-purple-700'
-                      : 'bg-blue-100 text-blue-700'
+                      : u.role === 'manager'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-green-100 text-green-700'
                   }`}>
                     {u.role}
                   </span>

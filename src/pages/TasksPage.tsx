@@ -41,6 +41,8 @@ export default function TasksPage() {
 
   if (!currentUser) { navigate('/'); return null }
 
+  const canEdit = currentUser.role === 'admin' || currentUser.role === 'manager'
+
   const filteredTasks = tasks.filter((t) => {
     const matchSearch = t.name.toLowerCase().includes(search.toLowerCase())
     const matchMine = !filterMine || t.assignedTo === currentUser.email
@@ -201,18 +203,20 @@ export default function TasksPage() {
           )}
         </div>
 
-        {/* Add new task */}
-        <div className="p-3 border-t border-slate-800">
-          <button
-            onClick={() => setShowNewTask(true)}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 text-sm font-medium transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New Task
-          </button>
-        </div>
+        {/* Add new task — managers and admins only */}
+        {canEdit && (
+          <div className="p-3 border-t border-slate-800">
+            <button
+              onClick={() => setShowNewTask(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-500 text-sm font-medium transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Task
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* ── Mind map 75% ── */}
@@ -250,15 +254,17 @@ export default function TasksPage() {
                   )}
                 </div>
               </div>
-              <button
-                onClick={() => setEditingTask(selectedTask)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-xs font-medium transition-colors flex-shrink-0"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit task
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => setEditingTask(selectedTask)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-xs font-medium transition-colors flex-shrink-0"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit task
+                </button>
+              )}
             </div>
 
             <div className="flex-1 overflow-hidden relative">
@@ -266,6 +272,7 @@ export default function TasksPage() {
               task={selectedTask}
               onAddChecklist={handleAddChecklist}
               onOpenChecklist={handleOpenChecklist}
+              canEdit={canEdit}
             />
             {openChecklistId && (() => {
               const cl = selectedTask.checklists.find((c) => c.id === openChecklistId)
