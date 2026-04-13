@@ -4,12 +4,14 @@ import type { AppUser, Project, Task, ChecklistTemplate } from './types'
 
 interface AppState {
   currentUser: AppUser | null
+  currentProjectId: string | null
   members: AppUser[]
   projects: Project[]
   tasks: Task[]
   templates: ChecklistTemplate[]
 
   setCurrentUser: (user: AppUser | null) => void
+  setCurrentProjectId: (id: string | null) => void
 
   // Members
   addMember: (member: AppUser) => void
@@ -125,12 +127,14 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       currentUser: null,
+      currentProjectId: null,
       members: SAMPLE_MEMBERS,
       projects: SAMPLE_PROJECTS,
       tasks: SAMPLE_TASKS,
       templates: SAMPLE_TEMPLATES,
 
-      setCurrentUser: (user) => set({ currentUser: user }),
+      setCurrentUser: (user) => set({ currentUser: user, currentProjectId: null }),
+      setCurrentProjectId: (id) => set({ currentProjectId: id }),
 
       addMember: (m) => set((s) => ({ members: [...s.members, m] })),
       updateMember: (m) => set((s) => ({ members: s.members.map((x) => x.id === m.id ? m : x) })),

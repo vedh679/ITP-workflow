@@ -11,7 +11,7 @@ const ROLE_BADGE: Record<string, string> = {
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
-  const { members, setCurrentUser } = useAppStore()
+  const { members, projects, setCurrentUser, setCurrentProjectId } = useAppStore()
   const navigate = useNavigate()
 
   const handleLogin = (e: React.FormEvent) => {
@@ -19,7 +19,20 @@ export default function LoginPage() {
     const user = members.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
     if (user) {
       setCurrentUser(user)
-      navigate('/home')
+      if (user.role === 'admin') {
+        // Admins see everything — no project context needed
+        navigate('/home')
+      } else if (user.projectIds.length === 1) {
+        // Only one project — auto-select it
+        setCurrentProjectId(user.projectIds[0])
+        navigate('/home')
+      } else if (user.projectIds.length > 1) {
+        // Multiple projects — let user choose
+        navigate('/select-project')
+      } else {
+        // No projects assigned — still go home (will see empty tasks)
+        navigate('/home')
+      }
     } else {
       setError('Email not found. Select a test account below or contact your admin.')
     }

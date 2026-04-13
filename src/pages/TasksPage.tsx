@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import type { Task, ChecklistTemplate } from '../types'
@@ -6,6 +6,7 @@ import TaskMindMap from '../components/TaskMindMap'
 import AddChecklistModal from '../components/AddChecklistModal'
 import ChecklistDetail from '../components/ChecklistDetail'
 import NewTaskModal from '../components/NewTaskModal'
+import ProjectSwitcher from '../components/ProjectSwitcher'
 
 function statusBadge(status: Task['status']) {
   const map = {
@@ -24,15 +25,15 @@ function formatDate(iso: string) {
 
 export default function TasksPage() {
   const navigate = useNavigate()
-  const { currentUser, members, tasks, templates, addTask, updateTask } = useAppStore()
+  const { currentUser, currentProjectId, members, tasks, templates, addTask, updateTask } = useAppStore()
 
   // Build name lookup from live members list
   const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
 
-  // Non-admins only see tasks in their assigned projects
+  // Non-admins only see tasks for the active project
   const projectFilteredTasks = currentUser?.role === 'admin'
     ? tasks
-    : tasks.filter((t) => currentUser?.projectIds.includes(t.projectId))
+    : tasks.filter((t) => t.projectId === currentProjectId)
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(projectFilteredTasks[0]?.id ?? null)
   const [search, setSearch] = useState('')
@@ -41,6 +42,12 @@ export default function TasksPage() {
   const [openChecklistId, setOpenChecklistId] = useState<string | null>(null)
   const [showNewTask, setShowNewTask] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
+
+  // Reset selected task when the active project changes
+  useEffect(() => {
+    setSelectedTaskId(projectFilteredTasks[0]?.id ?? null)
+    setOpenChecklistId(null)
+  }, [currentProjectId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!currentUser) { navigate('/'); return null }
 
@@ -102,7 +109,7 @@ export default function TasksPage() {
       <aside className="w-1/4 min-w-[220px] flex flex-col border-r border-slate-800 bg-slate-900">
         {/* Sidebar header */}
         <div className="px-4 py-4 border-b border-slate-800">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-3">
             <button
               onClick={() => navigate('/home')}
               className="text-slate-400 hover:text-white transition-colors"
@@ -114,6 +121,7 @@ export default function TasksPage() {
             </button>
             <h1 className="text-white font-bold text-base">Tasks</h1>
           </div>
+          <ProjectSwitcher variant="dark" />
 
           {/* Search */}
           <div className="relative mb-3">
