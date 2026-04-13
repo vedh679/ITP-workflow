@@ -1,37 +1,34 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
-import type { User } from '../types'
 
-const TEST_USERS: User[] = [
-  { email: 'admin@itp.com', name: 'Admin User', role: 'admin' },
-  { email: 'manager@itp.com', name: 'Project Manager', role: 'manager' },
-  { email: 'vedh@itp.com', name: 'Vedh', role: 'manager' },
-  { email: 'inspector@itp.com', name: 'Site Inspector', role: 'engineer' },
-  { email: 'engineer@itp.com', name: 'Field Engineer', role: 'engineer' },
-]
+const ROLE_BADGE: Record<string, string> = {
+  admin:    'bg-purple-100 text-purple-700',
+  manager:  'bg-blue-100 text-blue-700',
+  engineer: 'bg-green-100 text-green-700',
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
-  const setCurrentUser = useAppStore((s) => s.setCurrentUser)
+  const { members, setCurrentUser } = useAppStore()
   const navigate = useNavigate()
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    const user = TEST_USERS.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
+    const user = members.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
     if (user) {
       setCurrentUser(user)
       navigate('/home')
     } else {
-      setError('Email not found. Try one of the test accounts below.')
+      setError('Email not found. Select a test account below or contact your admin.')
     }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo / Branding */}
+        {/* Branding */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 backdrop-blur mb-4">
             <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,13 +43,11 @@ export default function LoginPage() {
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-1">Sign in</h2>
-          <p className="text-gray-500 text-sm mb-6">Enter your email to continue</p>
+          <p className="text-gray-500 text-sm mb-6">Enter your email address to continue</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email address
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
               <input
                 type="email"
                 value={email}
@@ -77,11 +72,11 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Test accounts hint */}
+          {/* Test accounts */}
           <div className="mt-6 pt-6 border-t border-gray-100">
             <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-3">Test accounts</p>
-            <div className="space-y-2">
-              {TEST_USERS.map((u) => (
+            <div className="space-y-1.5">
+              {members.map((u) => (
                 <button
                   key={u.email}
                   onClick={() => setEmail(u.email)}
@@ -91,13 +86,7 @@ export default function LoginPage() {
                     <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">{u.name}</span>
                     <span className="text-xs text-gray-400 block">{u.email}</span>
                   </div>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    u.role === 'admin'
-                      ? 'bg-purple-100 text-purple-700'
-                      : u.role === 'manager'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-green-100 text-green-700'
-                  }`}>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_BADGE[u.role] ?? 'bg-gray-100 text-gray-600'}`}>
                     {u.role}
                   </span>
                 </button>

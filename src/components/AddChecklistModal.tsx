@@ -1,25 +1,25 @@
 import { useState } from 'react'
+import { useAppStore } from '../store'
 import type { ChecklistTemplate } from '../types'
-
-const USERS = [
-  { email: 'admin@itp.com', name: 'Admin User', role: 'admin' },
-  { email: 'manager@itp.com', name: 'Project Manager', role: 'manager' },
-  { email: 'vedh@itp.com', name: 'Vedh', role: 'manager' },
-  { email: 'inspector@itp.com', name: 'Site Inspector', role: 'engineer' },
-  { email: 'engineer@itp.com', name: 'Field Engineer', role: 'engineer' },
-]
 
 interface Props {
   templates: ChecklistTemplate[]
+  projectId?: string
   onAdd: (template: ChecklistTemplate, assignedTo: string) => void
   onClose: () => void
 }
 
-export default function AddChecklistModal({ templates, onAdd, onClose }: Props) {
+export default function AddChecklistModal({ templates, projectId, onAdd, onClose }: Props) {
+  const { members } = useAppStore()
   const [selected, setSelected] = useState<string | null>(null)
   const [assignedTo, setAssignedTo] = useState('')
 
   const chosen = templates.find((t) => t.id === selected)
+
+  // Show members assigned to the task's project, or all members if no projectId
+  const visibleMembers = projectId
+    ? members.filter((m) => m.projectIds.includes(projectId))
+    : members
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -76,7 +76,7 @@ export default function AddChecklistModal({ templates, onAdd, onClose }: Props) 
                 Assign to
               </label>
               <div className="space-y-2">
-                {USERS.map((u) => (
+                {visibleMembers.map((u) => (
                   <button
                     key={u.email}
                     onClick={() => setAssignedTo(u.email)}

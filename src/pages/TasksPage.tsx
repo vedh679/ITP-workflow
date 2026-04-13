@@ -7,12 +7,6 @@ import AddChecklistModal from '../components/AddChecklistModal'
 import ChecklistDetail from '../components/ChecklistDetail'
 import NewTaskModal from '../components/NewTaskModal'
 
-const USER_NAMES: Record<string, string> = {
-  'admin@itp.com': 'Admin User',
-  'vedh@itp.com': 'Vedh',
-  'inspector@itp.com': 'Site Inspector',
-}
-
 function statusBadge(status: Task['status']) {
   const map = {
     'pending': 'bg-slate-700 text-slate-300',
@@ -30,8 +24,17 @@ function formatDate(iso: string) {
 
 export default function TasksPage() {
   const navigate = useNavigate()
-  const { currentUser, tasks, templates, addTask, updateTask } = useAppStore()
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(tasks[0]?.id ?? null)
+  const { currentUser, members, tasks, templates, addTask, updateTask } = useAppStore()
+
+  // Build name lookup from live members list
+  const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
+
+  // Non-admins only see tasks in their assigned projects
+  const projectFilteredTasks = currentUser?.role === 'admin'
+    ? tasks
+    : tasks.filter((t) => currentUser?.projectIds.includes(t.projectId))
+
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(projectFilteredTasks[0]?.id ?? null)
   const [search, setSearch] = useState('')
   const [filterMine, setFilterMine] = useState(false)
   const [showAddChecklist, setShowAddChecklist] = useState(false)
@@ -43,7 +46,7 @@ export default function TasksPage() {
 
   const canEdit = currentUser.role === 'admin' || currentUser.role === 'manager'
 
-  const filteredTasks = tasks.filter((t) => {
+  const filteredTasks = projectFilteredTasks.filter((t) => {
     const matchSearch = t.name.toLowerCase().includes(search.toLowerCase())
     const matchMine = !filterMine || t.assignedTo === currentUser.email
     return matchSearch && matchMine
@@ -193,8 +196,8 @@ export default function TasksPage() {
                   ) : <span />}
                   {task.assignedTo && (
                     <div className="w-5 h-5 rounded-full bg-blue-800/50 text-blue-300 flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      title={USER_NAMES[task.assignedTo] ?? task.assignedTo}>
-                      {(USER_NAMES[task.assignedTo] ?? task.assignedTo).charAt(0)}
+                      title={memberNameMap[task.assignedTo] ?? task.assignedTo}>
+                      {(memberNameMap[task.assignedTo] ?? task.assignedTo).charAt(0)}
                     </div>
                   )}
                 </div>
@@ -249,7 +252,7 @@ export default function TasksPage() {
                       <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
-                      {USER_NAMES[selectedTask.assignedTo] ?? selectedTask.assignedTo}
+                      {memberNameMap[selectedTask.assignedTo] ?? selectedTask.assignedTo}
                     </span>
                   )}
                 </div>
@@ -305,6 +308,7 @@ export default function TasksPage() {
       {showAddChecklist && selectedTask && (
         <AddChecklistModal
           templates={templates}
+          projectId={selectedTask.projectId}
           onAdd={(tmpl, assignedTo) => handleChecklistSelected(tmpl, assignedTo)}
           onClose={() => setShowAddChecklist(false)}
         />
@@ -327,6 +331,7 @@ export default function TasksPage() {
             location: editingTask.location,
             dueDate: editingTask.dueDate,
             assignedTo: editingTask.assignedTo,
+            projectId: editingTask.projectId,
           }}
           onAdd={handleSaveEdit}
           onClose={() => setEditingTask(null)}

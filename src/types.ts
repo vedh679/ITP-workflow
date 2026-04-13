@@ -1,14 +1,22 @@
 export type UserRole = 'admin' | 'manager' | 'engineer'
 
-export interface User {
+export interface AppUser {
+  id: string
   email: string
   name: string
   role: UserRole
+  projectIds: string[]   // projects this member is assigned to
+}
+
+export interface Project {
+  id: string
+  name: string
+  description: string
 }
 
 export interface Signature {
   name: string
-  date: string // ISO string
+  date: string
 }
 
 export interface ChecklistItem {
@@ -33,7 +41,7 @@ export interface TaskChecklist {
   items: ChecklistItem[]
   requiresSignature: boolean
   signature?: Signature
-  assignedTo?: string  // email of assigned user
+  assignedTo?: string
 }
 
 export interface Task {
@@ -41,8 +49,9 @@ export interface Task {
   name: string
   description: string
   location: string
-  dueDate: string       // ISO date string (date only)
+  dueDate: string
   assignedTo: string
+  projectId: string      // which project this task belongs to
   status: 'pending' | 'in-progress' | 'completed'
   checklists: TaskChecklist[]
   createdAt: string
