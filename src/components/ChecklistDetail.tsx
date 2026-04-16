@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react'
 import type { Task, TaskChecklist, ChecklistAttachment } from '../types'
 import { useAppStore } from '../store'
+import MemberPicker from './MemberPicker'
 
 interface Props {
   task: Task
   checklist: TaskChecklist
   onClose: () => void
+  onDelete?: () => void   // managers/admins only
 }
 
 type Step = 1 | 2 | 3
@@ -393,14 +395,23 @@ function PageSignOff({
 }
 
 // ── Main wizard ───────────────────────────────────────────────────
-export default function ChecklistDetail({ task, checklist, onClose }: Props) {
-  const { members, updateTask } = useAppStore()
+export default function ChecklistDetail({ task, checklist, onClose, onDelete }: Props) {
+  const { members, currentUser, updateTask } = useAppStore()
   const [step, setStep] = useState<Step>(1)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [showReassign, setShowReassign] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  const canManage = currentUser?.role === 'admin' || currentUser?.role === 'manager'
 
   const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
 
   // Always read from live store so toggles persist immediately
   const liveChecklist = task.checklists.find((cl) => cl.id === checklist.id) ?? checklist
+
+  // Members scoped to this task's project
+  const projectMembers = members.filter((m) => m.projectIds.includes(task.projectId))
 
   const updateChecklist = (updated: Partial<typeof liveChecklist>) => {
     updateTask({
@@ -435,14 +446,89 @@ export default function ChecklistDetail({ task, checklist, onClose }: Props) {
     updateChecklist({ signature: undefined })
   }
 
+  // ── PDF export via window.print ──
+  const handleExportPDF = () => {
+    setMenuOpen(false)
+    const doneCnt = liveChecklist.items.filter((i) => i.completed).length
+    const attachments = liveChecklist.attachments ?? []
+
+    const itemRows = liveChecklist.items.map((it, idx) => `
+      <tr style="border-bottom:1px solid #e2e8f0">
+        <td style="padding:8px 4px;color:#64748b;font-size:11px;width:32px">${String(idx + 1).padStart(2, '0')}</td>
+        <td style="padding:8px 4px;font-size:13px">${it.text}</td>
+        <td style="padding:8px 4px;text-align:center;width:80px">
+          <span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;
+            background:${it.completed ? '#dcfce7' : '#fef9c3'};color:${it.completed ? '#166534' : '#854d0e'}">
+            ${it.completed ? '✓ Done' : 'Pending'}
+          </span>
+        </td>
+      </tr>
+    `).join('')
+
+    const imageAttachments = attachments.filter((a) => a.mimeType.startsWith('image/'))
+    const otherAttachments = attachments.filter((a) => !a.mimeType.startsWith('image/'))
+
+    const attachSection = attachments.length === 0 ? '<p style="color:#94a3b8;font-size:13px">No attachments.</p>' : `
+      ${imageAttachments.map((a) => `
+        <div style="display:inline-block;margin:6px;vertical-align:top">
+          <img src="${a.dataUrl}" style="max-width:200px;max-height:160px;border-radius:8px;border:1px solid #e2e8f0" />
+          <p style="font-size:11px;color:#64748b;margin:4px 0 0;text-align:center">${a.name}</p>
+        </div>
+      `).join('')}
+      ${otherAttachments.map((a) => `
+        <p style="font-size:12px;color:#374151;margin:4px 0">📎 ${a.name}</p>
+      `).join('')}
+    `
+
+    const sigSection = liveChecklist.requiresSignature
+      ? liveChecklist.signature
+        ? `<p style="font-size:13px"><strong>Signed by:</strong> ${liveChecklist.signature.name} &nbsp;·&nbsp;
+            ${new Date(liveChecklist.signature.date).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>`
+        : `<p style="font-size:13px;color:#b45309">⚠ Signature not yet provided.</p>`
+      : `<p style="font-size:13px;color:#64748b">No signature required.</p>`
+
+    const html = `<!DOCTYPE html><html><head><title>${liveChecklist.templateName}</title>
+    <style>
+      body{font-family:system-ui,sans-serif;color:#1e293b;padding:32px;max-width:800px;margin:0 auto}
+      table{width:100%;border-collapse:collapse}
+      h1{font-size:22px;margin:0 0 4px}
+      h2{font-size:15px;margin:24px 0 10px;color:#334155;border-bottom:1px solid #e2e8f0;padding-bottom:6px}
+      @media print{body{padding:16px}}
+    </style></head><body>
+      <p style="font-size:11px;color:#94a3b8;margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em">Inspection & Test Plan</p>
+      <h1>${liveChecklist.templateName}</h1>
+      <p style="font-size:13px;color:#64748b;margin:4px 0 0">Task: <strong>${task.name}</strong>
+        ${task.location ? ' &nbsp;·&nbsp; ' + task.location : ''}
+        ${liveChecklist.assignedTo ? ' &nbsp;·&nbsp; Assigned to: <strong>' + (memberNameMap[liveChecklist.assignedTo] ?? liveChecklist.assignedTo) + '</strong>' : ''}
+      </p>
+      <p style="font-size:12px;color:#94a3b8;margin:6px 0 0">Exported: ${new Date().toLocaleString()}</p>
+
+      <h2>Inspection Checks &nbsp;<span style="font-size:12px;font-weight:400;color:#64748b">${doneCnt}/${liveChecklist.items.length} complete</span></h2>
+      <table><tbody>${itemRows}</tbody></table>
+
+      <h2>Attachments</h2>
+      ${attachSection}
+
+      <h2>Sign-off</h2>
+      ${sigSection}
+    </body></html>`
+
+    const win = window.open('', '_blank')
+    if (!win) return
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    setTimeout(() => { win.print() }, 400)
+  }
+
   const canFinish = !liveChecklist.requiresSignature || !!liveChecklist.signature
 
   return (
-    <div className="absolute inset-0 z-20 bg-slate-950 flex flex-col">
+    <div className="absolute inset-0 z-20 bg-slate-950 flex flex-col" onClick={() => { if (menuOpen) setMenuOpen(false) }}>
 
       {/* ── Top bar ── */}
       <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-slate-800">
-        {/* Row 1: back + task name + assigned pill */}
+        {/* Row 1: back + task name + assigned pill + actions menu */}
         <div className="flex items-center gap-3 mb-5">
           <button
             onClick={onClose}
@@ -461,14 +547,83 @@ export default function ChecklistDetail({ task, checklist, onClose }: Props) {
             <h1 className="text-base font-bold text-white truncate">{liveChecklist.templateName}</h1>
           </div>
 
-          {liveChecklist.assignedTo && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0">
+          {/* Assigned pill — clickable for managers to reassign */}
+          {liveChecklist.assignedTo ? (
+            <button
+              onClick={() => canManage && setShowReassign(true)}
+              title={canManage ? 'Click to reassign' : undefined}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0 transition-colors ${canManage ? 'hover:border-blue-500 cursor-pointer' : 'cursor-default'}`}
+            >
               <div className="w-5 h-5 rounded-full bg-blue-600/40 text-blue-300 flex items-center justify-center text-xs font-bold">
                 {(memberNameMap[liveChecklist.assignedTo] ?? liveChecklist.assignedTo).charAt(0)}
               </div>
               <span className="text-xs text-slate-300 font-medium">
                 {memberNameMap[liveChecklist.assignedTo] ?? liveChecklist.assignedTo}
               </span>
+              {canManage && (
+                <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              )}
+            </button>
+          ) : canManage ? (
+            <button
+              onClick={() => setShowReassign(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-dashed border-slate-700 text-slate-500 hover:border-blue-500 hover:text-blue-400 text-xs transition-colors flex-shrink-0"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Assign
+            </button>
+          ) : null}
+
+          {/* ⋯ Actions menu */}
+          {canManage && (
+            <div ref={menuRef} className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                title="More actions"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                </svg>
+              </button>
+
+              {menuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30">
+                  <button
+                    onClick={handleExportPDF}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left"
+                  >
+                    <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Export as PDF
+                  </button>
+                  <button
+                    onClick={() => { setMenuOpen(false); setShowReassign(true) }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left"
+                  >
+                    <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Change assignee
+                  </button>
+                  <div className="h-px bg-slate-800 mx-2" />
+                  <button
+                    onClick={() => { setMenuOpen(false); setConfirmDelete(true) }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-400 hover:bg-red-900/20 transition-colors text-left"
+                  >
+                    <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete checklist
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -476,6 +631,61 @@ export default function ChecklistDetail({ task, checklist, onClose }: Props) {
         {/* Row 2: step bar */}
         <StepBar step={step} total={liveChecklist.items.length} requiresSignature={liveChecklist.requiresSignature} />
       </div>
+
+      {/* ── Reassign modal ── */}
+      {showReassign && (
+        <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="text-base font-bold text-white mb-4">Change assignee</h3>
+            <MemberPicker
+              members={projectMembers}
+              value={liveChecklist.assignedTo ?? ''}
+              onChange={(email) => {
+                updateChecklist({ assignedTo: email || undefined })
+                setShowReassign(false)
+              }}
+              placeholder="Search by name…"
+            />
+            <button
+              onClick={() => setShowReassign(false)}
+              className="mt-3 w-full py-2 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete confirmation ── */}
+      {confirmDelete && (
+        <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className="w-12 h-12 rounded-xl bg-red-900/30 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-white text-center mb-1">Delete checklist?</h3>
+            <p className="text-slate-400 text-sm text-center mb-6">
+              <strong className="text-slate-300">{liveChecklist.templateName}</strong> will be permanently removed from this task.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { onDelete?.(); onClose() }}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Page content ── */}
       {step === 1 && (

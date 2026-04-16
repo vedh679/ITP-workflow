@@ -254,6 +254,13 @@ export default function TasksPage() {
                   task={selectedTask}
                   checklist={cl}
                   onClose={() => setOpenChecklistId(null)}
+                  onDelete={() => {
+                    updateTask({
+                      ...selectedTask,
+                      checklists: selectedTask.checklists.filter((c) => c.id !== openChecklistId),
+                    })
+                    setOpenChecklistId(null)
+                  }}
                 />
               ) : null
             })()}
