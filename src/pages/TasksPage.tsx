@@ -236,55 +236,12 @@ export default function TasksPage() {
       <main className="flex-1 overflow-hidden relative flex flex-col">
         {selectedTask ? (
           <>
-            {/* Task info bar */}
-            <div className="flex items-center gap-4 px-5 py-3 border-b border-slate-800 bg-slate-900/80 backdrop-blur flex-shrink-0">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-bold text-white truncate">{selectedTask.name}</h2>
-                <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                  {selectedTask.location && (
-                    <span className="flex items-center gap-1 text-xs text-slate-400">
-                      <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      {selectedTask.location}
-                    </span>
-                  )}
-                  {selectedTask.dueDate && (
-                    <span className="flex items-center gap-1 text-xs text-slate-400">
-                      <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      Due {formatDate(selectedTask.dueDate)}
-                    </span>
-                  )}
-                  {selectedTask.assignedTo && (
-                    <span className="flex items-center gap-1 text-xs text-slate-400">
-                      <svg className="w-3 h-3 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      {memberNameMap[selectedTask.assignedTo] ?? selectedTask.assignedTo}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {canEdit && (
-                <button
-                  onClick={() => setEditingTask(selectedTask)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-xs font-medium transition-colors flex-shrink-0"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit task
-                </button>
-              )}
-            </div>
-
             <div className="flex-1 overflow-hidden relative">
             <TaskMindMap
               task={selectedTask}
               onAddChecklist={handleAddChecklist}
               onOpenChecklist={handleOpenChecklist}
+              onEditTask={(t) => canEdit && setEditingTask(t)}
               canEdit={canEdit}
             />
             {openChecklistId && (() => {

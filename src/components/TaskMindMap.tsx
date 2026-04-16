@@ -23,6 +23,8 @@ import type { Task } from '../types'
 interface TaskNodeData extends Record<string, unknown> {
   label: string
   status: Task['status']
+  canEdit: boolean
+  onEdit: () => void
 }
 interface ChecklistNodeData extends Record<string, unknown> {
   checklistId: string
@@ -44,17 +46,25 @@ function TaskNode({ data }: NodeProps) {
     d.status === 'in-progress' ? '#3b82f6' : '#94a3b8'
 
   return (
-    <div style={{
-      background: 'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
-      border: `3px solid ${statusColor}`,
-      borderRadius: 16,
-      padding: '16px 24px',
-      minWidth: 200,
-      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-      color: '#fff',
-      textAlign: 'center',
-    }}>
-      <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Task</div>
+    <div
+      onDoubleClick={() => d.canEdit && d.onEdit()}
+      title={d.canEdit ? 'Double-click to edit' : undefined}
+      style={{
+        background: 'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
+        border: `3px solid ${statusColor}`,
+        borderRadius: 16,
+        padding: '16px 24px',
+        minWidth: 200,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        color: '#fff',
+        textAlign: 'center',
+        cursor: d.canEdit ? 'pointer' : 'default',
+        userSelect: 'none',
+      }}
+    >
+      <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
+        Task{d.canEdit && <span style={{ opacity: 0.5, marginLeft: 4 }}>· dbl-click to edit</span>}
+      </div>
       <div style={{ fontWeight: 700, fontSize: 16 }}>{d.label}</div>
       <div style={{
         marginTop: 8, display: 'inline-block',
@@ -211,10 +221,11 @@ interface Props {
   task: Task
   onAddChecklist: (taskId: string) => void
   onOpenChecklist: (checklistId: string) => void
+  onEditTask: (task: Task) => void
   canEdit?: boolean
 }
 
-export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, canEdit = true }: Props) {
+export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onEditTask, canEdit = true }: Props) {
   const { initialNodes, initialEdges } = useMemo(() => {
     const SPACING_Y = 110
     const ROOT_X = 60
@@ -237,7 +248,12 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, can
         id: 'root',
         type: 'taskNode',
         position: { x: ROOT_X, y: rootY },
-        data: { label: task.name, status: task.status } as TaskNodeData,
+        data: {
+          label: task.name,
+          status: task.status,
+          canEdit,
+          onEdit: () => onEditTask(task),
+        } as TaskNodeData,
         draggable: true,
       },
     ]
