@@ -123,7 +123,6 @@ export default function TasksPage() {
             </button>
             <h1 className="text-white font-bold text-base">Tasks</h1>
           </div>
-          <ProjectSwitcher variant="dark" />
 
           {/* Search */}
           <div className="relative mb-3">
@@ -234,6 +233,10 @@ export default function TasksPage() {
 
       {/* ── Mind map 75% ── */}
       <main className="flex-1 overflow-hidden relative flex flex-col">
+        {/* Project switcher — top-right corner, above everything */}
+        <div className="absolute top-4 right-4 z-10">
+          <ProjectSwitcher variant="dark" />
+        </div>
         {selectedTask ? (
           <>
             <div className="flex-1 overflow-hidden relative">
