@@ -84,12 +84,13 @@ export default function TasksPage() {
     setShowAddChecklist(false)
   }
 
-  const handleCreateTask = (fields: Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status'>) => {
+  const handleCreateTask = (fields: Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status' | 'projectId'>) => {
     const task: Task = {
       id: `task-${Date.now()}`,
       status: 'pending',
       checklists: [],
       createdAt: new Date().toISOString(),
+      projectId: currentProjectId ?? '',
       ...fields,
     }
     addTask(task)
@@ -97,8 +98,9 @@ export default function TasksPage() {
     setShowNewTask(false)
   }
 
-  const handleSaveEdit = (fields: Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status'>) => {
+  const handleSaveEdit = (fields: Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status' | 'projectId'>) => {
     if (!editingTask) return
+    // projectId is preserved from the original task — never changed on edit
     updateTask({ ...editingTask, ...fields })
     setEditingTask(null)
   }
@@ -339,7 +341,6 @@ export default function TasksPage() {
             location: editingTask.location,
             dueDate: editingTask.dueDate,
             assignedTo: editingTask.assignedTo,
-            projectId: editingTask.projectId,
           }}
           onAdd={handleSaveEdit}
           onClose={() => setEditingTask(null)}

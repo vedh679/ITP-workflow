@@ -3,7 +3,7 @@ import { useAppStore } from '../store'
 import type { Task } from '../types'
 import MemberPicker from './MemberPicker'
 
-type TaskFields = Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status'>
+type TaskFields = Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status' | 'projectId'>
 
 interface Props {
   initialValues?: Partial<TaskFields>
@@ -12,32 +12,26 @@ interface Props {
 }
 
 export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
-  const { members, projects, currentUser } = useAppStore()
+  const { members, currentProjectId } = useAppStore()
   const [name, setName] = useState(initialValues?.name ?? '')
   const [description, setDescription] = useState(initialValues?.description ?? '')
   const [location, setLocation] = useState(initialValues?.location ?? '')
   const [dueDate, setDueDate] = useState(initialValues?.dueDate ?? '')
   const [assignedTo, setAssignedTo] = useState(initialValues?.assignedTo ?? '')
-  const [projectId, setProjectId] = useState(initialValues?.projectId ?? '')
 
   const isEdit = !!initialValues
 
-  // Admins see all projects; others see only their assigned projects
-  const visibleProjects = currentUser?.role === 'admin'
-    ? projects
-    : projects.filter((p) => currentUser?.projectIds.includes(p.id))
-
-  // Show members who belong to the selected project (or all if no project selected yet)
-  const visibleMembers = projectId
-    ? members.filter((m) => m.projectIds.includes(projectId))
+  // Only show members belonging to the active project
+  const visibleMembers = currentProjectId
+    ? members.filter((m) => m.projectIds.includes(currentProjectId))
     : members
 
-  const canSubmit = name.trim() && assignedTo && projectId
+  const canSubmit = name.trim() && assignedTo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
-    onAdd({ name: name.trim(), description, location, dueDate, assignedTo, projectId })
+    onAdd({ name: name.trim(), description, location, dueDate, assignedTo })
   }
 
   return (
@@ -124,51 +118,16 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
               </div>
             </div>
 
-            {/* Project */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Project <span className="text-red-400">*</span>
-              </label>
-              <div className="space-y-2">
-                {visibleProjects.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => { setProjectId(p.id); setAssignedTo('') }}
-                    className={`w-full text-left px-4 py-2.5 rounded-xl border transition-all ${
-                      projectId === p.id
-                        ? 'border-blue-500 bg-blue-500/10'
-                        : 'border-slate-700 hover:border-slate-500 bg-slate-800/50'
-                    }`}
-                  >
-                    <div className="text-sm font-medium text-slate-200">{p.name}</div>
-                    {p.description && <div className="text-xs text-slate-500 mt-0.5 truncate">{p.description}</div>}
-                  </button>
-                ))}
-                {visibleProjects.length === 0 && (
-                  <p className="text-slate-500 text-xs py-2">No projects available.</p>
-                )}
-              </div>
-            </div>
-
             {/* Assign to */}
-            {!projectId ? (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Assign to <span className="text-red-400">*</span>
-                </label>
-                <p className="text-slate-500 text-xs py-1 px-1">Select a project first to see available members.</p>
-              </div>
-            ) : (
-              <MemberPicker
-                members={visibleMembers}
-                value={assignedTo}
-                onChange={setAssignedTo}
-                label="Assign to"
-                required
-                placeholder={visibleMembers.length === 0 ? 'No members on this project' : 'Search by name…'}
-              />
-            )}
+            <MemberPicker
+              members={visibleMembers}
+              value={assignedTo}
+              onChange={setAssignedTo}
+              label="Assign to"
+              required
+              placeholder={visibleMembers.length === 0 ? 'No members on this project' : 'Search by name…'}
+            />
+
           </div>
 
           {/* Actions */}
