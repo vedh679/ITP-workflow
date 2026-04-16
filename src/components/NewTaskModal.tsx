@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../store'
 import type { Task } from '../types'
+import MemberPicker from './MemberPicker'
 
 type TaskFields = Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status'>
 
@@ -151,53 +152,23 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
             </div>
 
             {/* Assign to */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Assign to <span className="text-red-400">*</span>
-              </label>
-              {!projectId && (
-                <p className="text-slate-500 text-xs py-1">Select a project first to see available members.</p>
-              )}
-              {projectId && (
-                <div className="space-y-2">
-                  {visibleMembers.map((u) => (
-                    <button
-                      key={u.email}
-                      type="button"
-                      onClick={() => setAssignedTo(u.email)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
-                        assignedTo === u.email
-                          ? 'border-blue-500 bg-blue-500/10'
-                          : 'border-slate-700 hover:border-slate-500 bg-slate-800/50'
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-blue-600/30 text-blue-300 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                        {u.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-200">{u.name}</span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${
-                            u.role === 'admin' ? 'bg-purple-900/50 text-purple-300' :
-                            u.role === 'manager' ? 'bg-blue-900/50 text-blue-300' :
-                            'bg-green-900/50 text-green-300'
-                          }`}>{u.role}</span>
-                        </div>
-                        <div className="text-xs text-slate-500">{u.email}</div>
-                      </div>
-                      {assignedTo === u.email && (
-                        <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                  {visibleMembers.length === 0 && (
-                    <p className="text-slate-500 text-xs py-1">No members assigned to this project.</p>
-                  )}
-                </div>
-              )}
-            </div>
+            {!projectId ? (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Assign to <span className="text-red-400">*</span>
+                </label>
+                <p className="text-slate-500 text-xs py-1 px-1">Select a project first to see available members.</p>
+              </div>
+            ) : (
+              <MemberPicker
+                members={visibleMembers}
+                value={assignedTo}
+                onChange={setAssignedTo}
+                label="Assign to"
+                required
+                placeholder={visibleMembers.length === 0 ? 'No members on this project' : 'Search by name…'}
+              />
+            )}
           </div>
 
           {/* Actions */}

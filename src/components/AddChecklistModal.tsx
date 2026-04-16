@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAppStore } from '../store'
 import type { ChecklistTemplate } from '../types'
+import MemberPicker from './MemberPicker'
 
 interface Props {
   templates: ChecklistTemplate[]
@@ -72,35 +73,13 @@ export default function AddChecklistModal({ templates, projectId, onAdd, onClose
         {chosen && (
           <div className="px-6 pb-4">
             <div className="border-t border-slate-800 pt-4">
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Assign to
-              </label>
-              <div className="space-y-2">
-                {visibleMembers.map((u) => (
-                  <button
-                    key={u.email}
-                    onClick={() => setAssignedTo(u.email)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
-                      assignedTo === u.email
-                        ? 'border-blue-500 bg-blue-500/10'
-                        : 'border-slate-700 hover:border-slate-500 bg-slate-800/50'
-                    }`}
-                  >
-                    <div className="w-7 h-7 rounded-full bg-blue-600/30 text-blue-300 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                      {u.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-slate-200">{u.name}</div>
-                      <div className="text-xs text-slate-500">{u.email}</div>
-                    </div>
-                    {assignedTo === u.email && (
-                      <svg className="w-4 h-4 text-blue-400 ml-auto flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                ))}
-              </div>
+              <MemberPicker
+                members={visibleMembers}
+                value={assignedTo}
+                onChange={setAssignedTo}
+                label="Assign to"
+                placeholder={visibleMembers.length === 0 ? 'No members on this project' : 'Search by name…'}
+              />
             </div>
           </div>
         )}
