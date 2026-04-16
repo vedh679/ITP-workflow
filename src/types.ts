@@ -19,6 +19,13 @@ export interface Signature {
   date: string
 }
 
+export interface ChecklistAttachment {
+  id: string
+  name: string
+  mimeType: string
+  dataUrl: string   // base64 data URL stored client-side
+}
+
 export interface ChecklistItem {
   id: string
   text: string
@@ -42,6 +49,7 @@ export interface TaskChecklist {
   requiresSignature: boolean
   signature?: Signature
   assignedTo?: string
+  attachments?: ChecklistAttachment[]
 }
 
 export interface Task {
