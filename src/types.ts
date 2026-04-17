@@ -52,6 +52,11 @@ export interface TaskChecklist {
   attachments?: ChecklistAttachment[]
 }
 
+export interface CustomTable {
+  columns: string[]   // column header labels
+  rows: string[][]    // rows[r][c] = cell value
+}
+
 export interface Task {
   id: string
   name: string
@@ -63,4 +68,5 @@ export interface Task {
   status: 'pending' | 'in-progress' | 'completed'
   checklists: TaskChecklist[]
   createdAt: string
+  customTable?: CustomTable
 }
