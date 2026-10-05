@@ -39,6 +39,13 @@ export interface ChecklistTemplate {
   items: ChecklistItem[]
   requiresSignature: boolean
   createdAt: string
+  // version control (same as BMS documents)
+  docNumber?: string
+  version?: string
+  changeNote?: string
+  revisions?: BmsRevision[]
+  file?: ChecklistAttachment
+  updatedAt?: string
 }
 
 export interface TaskChecklist {
@@ -69,4 +76,35 @@ export interface Task {
   checklists: TaskChecklist[]
   createdAt: string
   customTable?: CustomTable
+}
+
+export type BmsCategory = 'Policy' | 'Procedure' | 'Form' | 'Template' | 'Register' | 'Manual' | 'Checklist Template'
+
+export interface BmsDocument {
+  id: string
+  title: string
+  docNumber: string       // e.g. BMS-QP-001
+  category: BmsCategory
+  description: string
+  version: string
+  content: string         // template body text
+  file?: ChecklistAttachment   // optional uploaded template file
+  requiresSignature?: boolean   // checklist templates only
+  changeNote?: string     // what changed from the previous version
+  revisions?: BmsRevision[]    // archived older versions, oldest first
+  updatedAt: string       // when the current version was created
+}
+
+export interface BmsRevision {
+  version: string
+  title: string
+  docNumber: string
+  category: BmsCategory
+  description: string
+  content: string
+  file?: ChecklistAttachment
+  requiresSignature?: boolean
+  changeNote: string
+  createdAt: string       // when this version was created
+  archivedAt: string      // when it was superseded
 }

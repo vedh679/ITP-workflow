@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AppUser, Project, Task, ChecklistTemplate } from './types'
+import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument } from './types'
 
 interface AppState {
   currentUser: AppUser | null
@@ -9,6 +9,7 @@ interface AppState {
   projects: Project[]
   tasks: Task[]
   templates: ChecklistTemplate[]
+  bmsDocuments: BmsDocument[]
 
   setCurrentUser: (user: AppUser | null) => void
   setCurrentProjectId: (id: string | null) => void
@@ -32,6 +33,11 @@ interface AppState {
   addTemplate: (template: ChecklistTemplate) => void
   updateTemplate: (template: ChecklistTemplate) => void
   deleteTemplate: (id: string) => void
+
+  // BMS documents
+  addBmsDocument: (doc: BmsDocument) => void
+  updateBmsDocument: (doc: BmsDocument) => void
+  deleteBmsDocument: (id: string) => void
 }
 
 // ── Sample projects ───────────────────────────────────────────────
@@ -122,6 +128,22 @@ const SAMPLE_TASKS: Task[] = [
   },
 ]
 
+// ── Sample BMS documents ──────────────────────────────────────────
+const SAMPLE_BMS: BmsDocument[] = [
+  { id: 'bms1', title: 'Quality Manual', docNumber: 'BMS-QM-001', category: 'Manual', version: '1.0',
+    description: 'Top-level description of the quality management system.',
+    content: '1. Purpose\n2. Scope\n3. Company policy\n4. Responsibilities\n5. Document control',
+    changeNote: 'Initial release', revisions: [], updatedAt: new Date().toISOString() },
+  { id: 'bms2', title: 'Inspection & Test Plan Template', docNumber: 'BMS-TP-010', category: 'Template', version: '1.0',
+    description: 'Standard ITP layout used on all projects.',
+    content: 'Project:\nActivity:\nInspection point | Acceptance criteria | Hold/Witness | Sign-off',
+    changeNote: 'Initial release', revisions: [], updatedAt: new Date().toISOString() },
+  { id: 'bms3', title: 'Non-Conformance Report', docNumber: 'BMS-FM-020', category: 'Form', version: '1.0',
+    description: 'Form for recording and closing out non-conformances.',
+    content: 'NCR No:\nDate:\nDescription:\nRoot cause:\nCorrective action:\nClosed by:',
+    changeNote: 'Initial release', revisions: [], updatedAt: new Date().toISOString() },
+]
+
 // ── Store ─────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>()(
   persist(
@@ -132,6 +154,7 @@ export const useAppStore = create<AppState>()(
       projects: SAMPLE_PROJECTS,
       tasks: SAMPLE_TASKS,
       templates: SAMPLE_TEMPLATES,
+      bmsDocuments: SAMPLE_BMS,
 
       setCurrentUser: (user) => set({ currentUser: user, currentProjectId: null }),
       setCurrentProjectId: (id) => set({ currentProjectId: id }),
@@ -151,6 +174,10 @@ export const useAppStore = create<AppState>()(
       addTemplate: (t) => set((s) => ({ templates: [...s.templates, t] })),
       updateTemplate: (t) => set((s) => ({ templates: s.templates.map((x) => x.id === t.id ? t : x) })),
       deleteTemplate: (id) => set((s) => ({ templates: s.templates.filter((t) => t.id !== id) })),
+
+      addBmsDocument: (d) => set((s) => ({ bmsDocuments: [...s.bmsDocuments, d] })),
+      updateBmsDocument: (d) => set((s) => ({ bmsDocuments: s.bmsDocuments.map((x) => x.id === d.id ? d : x) })),
+      deleteBmsDocument: (id) => set((s) => ({ bmsDocuments: s.bmsDocuments.filter((x) => x.id !== id) })),
     }),
     { name: 'itp-store' }
   )
