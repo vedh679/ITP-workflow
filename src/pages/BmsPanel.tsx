@@ -78,6 +78,60 @@ function metaChanges(prev: Snapshot, cur: Snapshot): string[] {
   return rows.filter(([k, a, b]) => a !== b && !(k === 'Signature required' && cur.category !== CHECKLIST)).map(([k, a, b]) => `${k}: "${a}" → "${b}"`)
 }
 
+function ChecklistView({ content, signature }: { content: string; signature?: boolean }) {
+  const items = content.split('\n').filter((l) => l.trim())
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-800">
+        <span className="text-xs font-semibold text-slate-400">Checklist items</span>
+        <span className="text-xs text-slate-500">{items.length} item{items.length === 1 ? '' : 's'}</span>
+      </div>
+      {items.length === 0 && <p className="px-4 py-3 text-sm text-slate-500">No items.</p>}
+      {items.map((text, i) => (
+        <div key={i} className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-800 last:border-0">
+          <span className="w-4 h-4 rounded border border-slate-600 flex-shrink-0" />
+          <span className="text-sm text-slate-200">{text}</span>
+        </div>
+      ))}
+      {signature && <div className="px-4 py-2 bg-slate-950 text-xs text-amber-300">✎ Signature required on completion</div>}
+    </div>
+  )
+}
+
+function ChecklistEditor({ content, onChange }: { content: string; onChange: (c: string) => void }) {
+  const rows = content === '' ? [''] : content.split('\n')
+  const set = (next: string[]) => onChange(next.join('\n'))
+  const edit = (i: number, v: string) => set(rows.map((r, k) => k === i ? v : r))
+  const remove = (i: number) => set(rows.length === 1 ? [''] : rows.filter((_, k) => k !== i))
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d
+    if (j < 0 || j >= rows.length) return
+    const next = [...rows]; [next[i], next[j]] = [next[j], next[i]]
+    set(next)
+  }
+  const addAfter = (i: number) => { const next = [...rows]; next.splice(i + 1, 0, ''); set(next) }
+  const btn = 'w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-white hover:bg-slate-700 disabled:opacity-30'
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+      {rows.map((text, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="w-4 h-4 rounded border border-slate-600 flex-shrink-0" />
+          <input autoFocus={i === rows.length - 1 && i > 0 && text === ''} data-checklist-row
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+            placeholder={`Item ${i + 1}`} value={text}
+            onChange={(e) => edit(i, e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addAfter(i) } }} />
+          <button type="button" className={btn} disabled={i === 0} onClick={() => move(i, -1)} title="Move up">↑</button>
+          <button type="button" className={btn} disabled={i === rows.length - 1} onClick={() => move(i, 1)} title="Move down">↓</button>
+          <button type="button" className={btn} onClick={() => remove(i)} title="Remove item">✕</button>
+        </div>
+      ))}
+      <button type="button" onClick={() => set([...rows, ''])} className="text-sm text-purple-300 hover:text-purple-200 font-semibold pt-1">+ Add item</button>
+    </div>
+  )
+}
+
 function VersionHistory({ doc }: { doc: BmsDocument }) {
   const [open, setOpen] = useState<Record<string, 'changes' | 'full' | undefined>>({})
   const all: { snap: Snapshot; archivedAt?: string }[] = [
@@ -122,7 +176,9 @@ function VersionHistory({ doc }: { doc: BmsDocument }) {
             )}
             {mode === 'full' && (
               <div className="mt-3 space-y-2">
-                <pre className="whitespace-pre-wrap text-xs font-mono bg-slate-950 border border-slate-800 rounded-lg p-3 text-slate-200">{snap.content || 'No template content.'}</pre>
+                {snap.category === CHECKLIST
+                  ? <ChecklistView content={snap.content} signature={snap.requiresSignature} />
+                  : <pre className="whitespace-pre-wrap text-xs font-mono bg-slate-950 border border-slate-800 rounded-lg p-3 text-slate-200">{snap.content || 'No template content.'}</pre>}
                 {snap.file && <a href={snap.file.dataUrl} download={snap.file.name} className="text-xs text-purple-300 underline">Download {snap.file.name}</a>}
               </div>
             )}
@@ -164,10 +220,11 @@ export default function BmsPanel() {
   const isExisting = !!draft && docs.some((d) => d.id === draft.id)
   const versionClash = isExisting && !!selected && !!draft && draft.version.trim() === selected.version
   const canSave = !!draft && !!draft.title.trim() && !!draft.version.trim() &&
+    (!isChecklist || draft.content.split('\n').some((l) => l.trim())) &&
     (!isExisting || (!!draft.changeNote?.trim() && !versionClash))
 
   const startNew = () => { setDraft(newBmsDoc(isChecklist ? CHECKLIST : 'Template')); setSelectedId(null) }
-  const startEdit = () => selected && setDraft({ ...selected, version: bumpVersion(selected.version), changeNote: '' })
+  const startEdit = () => { if (!selected) return; setSelectedId(selected.id); setDraft({ ...selected, version: bumpVersion(selected.version), changeNote: '' }) }
   const save = () => {
     if (!draft || !canSave) return
     const now = new Date().toISOString()
@@ -227,7 +284,7 @@ export default function BmsPanel() {
             <button key={d.id} onClick={() => { setSelectedId(d.id); setDraft(null) }}
               className={`w-full text-left px-4 py-3 border-b border-slate-800 hover:bg-slate-800 ${selectedId === d.id && !draft ? 'bg-slate-800' : ''}`}>
               <p className="text-sm font-semibold text-white truncate">{d.title}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{d.docNumber || 'No number'} · v{d.version} · {d.category}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{d.category !== CHECKLIST && `${d.docNumber || 'No number'} · `}v{d.version} · {d.category === CHECKLIST ? `${d.content.split('\n').filter((l) => l.trim()).length} items` : d.category}</p>
             </button>
           ))}
         </div>
@@ -237,10 +294,10 @@ export default function BmsPanel() {
       <main className="flex-1 overflow-y-auto p-6">
         {draft ? (
           <div className="max-w-2xl space-y-4">
-            <h2 className="text-white font-bold text-lg">{isExisting ? `Edit — new version (current is v${selected?.version})` : 'New document'}</h2>
+            <h2 className="text-white font-bold text-lg">{isExisting ? `Edit — new version (current is v${selected?.version})` : isChecklist ? 'New checklist' : 'New document'}</h2>
             <div><label className={label}>Title</label><input className={input} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></div>
-            <div className="grid grid-cols-3 gap-3">
-              <div><label className={label}>Document no.</label><input className={input} placeholder="BMS-QP-001" value={draft.docNumber} onChange={(e) => setDraft({ ...draft, docNumber: e.target.value })} /></div>
+            <div className={`grid ${isChecklist ? 'grid-cols-2' : 'grid-cols-3'} gap-3`}>
+              {!isChecklist && <div><label className={label}>Document no.</label><input className={input} placeholder="BMS-QP-001" value={draft.docNumber} onChange={(e) => setDraft({ ...draft, docNumber: e.target.value })} /></div>}
               <div><label className={label}>Category</label>
                 <select className={input} disabled={isChecklist} value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value as BmsCategory })}>
                   {(isChecklist ? [CHECKLIST] : BMS_CATEGORIES).map((c) => <option key={c}>{c}</option>)}
@@ -248,21 +305,28 @@ export default function BmsPanel() {
               <div><label className={label}>{isExisting ? 'New version' : 'Version'}</label><input className={input} value={draft.version} onChange={(e) => setDraft({ ...draft, version: e.target.value })} /></div>
             </div>
             <div><label className={label}>Description</label><input className={input} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></div>
-            <div><label className={label}>{isChecklist ? 'Checklist items (one per line)' : 'Template content'}</label>
-              <textarea className={`${input} font-mono h-64`} value={draft.content} onChange={(e) => setDraft({ ...draft, content: e.target.value })} /></div>
+            {isChecklist ? (
+              <div><label className={label}>Checklist items</label>
+                <ChecklistEditor content={draft.content} onChange={(c) => setDraft({ ...draft, content: c })} /></div>
+            ) : (
+              <div><label className={label}>Template content</label>
+                <textarea className={`${input} font-mono h-64`} value={draft.content} onChange={(e) => setDraft({ ...draft, content: e.target.value })} /></div>
+            )}
             {isChecklist && (
               <label className="flex items-center gap-2 text-sm text-slate-300">
                 <input type="checkbox" checked={!!draft.requiresSignature} onChange={(e) => setDraft({ ...draft, requiresSignature: e.target.checked })} />
                 Signature required on completion
               </label>
             )}
-            <div><label className={label}>Template file (optional)</label>
-              <input type="file" className="text-sm text-slate-400" onChange={(e) => onFile(e.target.files?.[0])} />
-              {draft.file && <p className="text-xs text-slate-400 mt-1">{draft.file.name}</p>}</div>
+            {!isChecklist && (
+              <div><label className={label}>Template file (optional)</label>
+                <input type="file" className="text-sm text-slate-400" onChange={(e) => onFile(e.target.files?.[0])} />
+                {draft.file && <p className="text-xs text-slate-400 mt-1">{draft.file.name}</p>}</div>
+            )}
             {isExisting && (
               <div>
                 <label className={label}>What changed from v{selected?.version}? (required)</label>
-                <textarea className={`${input} h-20`} placeholder="e.g. Added section 6 – records retention; updated sign-off roles" value={draft.changeNote ?? ''} onChange={(e) => setDraft({ ...draft, changeNote: e.target.value })} />
+                <textarea className={`${input} h-20`} placeholder={isChecklist ? 'e.g. Added first aid kit check' : 'e.g. Added section 6 – records retention; updated sign-off roles'} value={draft.changeNote ?? ''} onChange={(e) => setDraft({ ...draft, changeNote: e.target.value })} />
                 {versionClash && <p className="text-xs text-red-400 mt-1">Version number must differ from the current version.</p>}
                 <p className="text-xs text-slate-500 mt-1">Saving archives v{selected?.version} and keeps it in the version history.</p>
               </div>
@@ -277,7 +341,7 @@ export default function BmsPanel() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-white font-bold text-xl">{selected.title}</h2>
-                <p className="text-xs text-slate-500 mt-1">{selected.docNumber || 'No number'} · v{selected.version} · {selected.category} · Updated {new Date(selected.updatedAt).toLocaleDateString()}</p>
+                <p className="text-xs text-slate-500 mt-1">{selected.category !== CHECKLIST && `${selected.docNumber || 'No number'} · `}v{selected.version} · {selected.category} · Updated {new Date(selected.updatedAt).toLocaleDateString()}</p>
               </div>
               <div className="flex gap-2 flex-shrink-0">
                 <button onClick={startEdit} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold">Edit</button>
@@ -285,8 +349,9 @@ export default function BmsPanel() {
               </div>
             </div>
             {selected.description && <p className="text-sm text-slate-300">{selected.description}</p>}
-            <pre className="whitespace-pre-wrap bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 font-mono">{selected.content || 'No template content.'}</pre>
-            {selected.category === CHECKLIST && selected.requiresSignature && <p className="text-xs text-amber-300">Signature required</p>}
+            {selected.category === CHECKLIST
+              ? <ChecklistView content={selected.content} signature={selected.requiresSignature} />
+              : <pre className="whitespace-pre-wrap bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 font-mono">{selected.content || 'No template content.'}</pre>}
             {selected.file && (
               <a href={selected.file.dataUrl} download={selected.file.name} className="inline-block text-sm text-purple-300 hover:text-purple-200 underline">Download {selected.file.name}</a>
             )}
