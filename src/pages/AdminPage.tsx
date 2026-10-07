@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import BmsPanel from './BmsPanel'
+import WorkflowPanel from './WorkflowPanel'
 import type { AppUser, Project } from '../types'
 
 // ─────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────
-type Tab = 'members' | 'projects' | 'bms'
+type Tab = 'members' | 'projects' | 'bms' | 'workflow'
 
 const ROLE_BADGE: Record<string, string> = {
   admin:    'bg-purple-900/40 text-purple-300 border-purple-800/40',
@@ -370,6 +371,7 @@ export default function AdminPage() {
     { key: 'members',   label: 'Members',   color: 'text-blue-400',   activeClass: 'border-blue-500 text-blue-300 bg-blue-900/20' },
     { key: 'projects',  label: 'Projects',  color: 'text-emerald-400',activeClass: 'border-emerald-500 text-emerald-300 bg-emerald-900/20' },
     { key: 'bms',       label: 'BMS',       color: 'text-amber-400',  activeClass: 'border-amber-500 text-amber-300 bg-amber-900/20' },
+    { key: 'workflow',  label: 'Workflow',  color: 'text-sky-400',    activeClass: 'border-sky-500 text-sky-300 bg-sky-900/20' },
   ]
 
   return (
@@ -397,6 +399,7 @@ export default function AdminPage() {
         {tab === 'members'   && <MembersPanel />}
         {tab === 'projects'  && <ProjectsPanel />}
         {tab === 'bms'       && <BmsPanel />}
+        {tab === 'workflow'  && <WorkflowPanel />}
       </div>
     </div>
   )

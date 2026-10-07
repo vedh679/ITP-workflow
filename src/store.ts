@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument } from './types'
+import { startRun, syncRun } from './workflow'
+import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow } from './types'
 
 interface AppState {
   currentUser: AppUser | null
@@ -10,6 +11,7 @@ interface AppState {
   tasks: Task[]
   templates: ChecklistTemplate[]
   bmsDocuments: BmsDocument[]
+  workflows: Workflow[]
 
   setCurrentUser: (user: AppUser | null) => void
   setCurrentProjectId: (id: string | null) => void
@@ -38,6 +40,11 @@ interface AppState {
   addBmsDocument: (doc: BmsDocument) => void
   updateBmsDocument: (doc: BmsDocument) => void
   deleteBmsDocument: (id: string) => void
+
+  // Workflows
+  addWorkflow: (workflow: Workflow) => void
+  updateWorkflow: (workflow: Workflow) => void
+  deleteWorkflow: (id: string) => void
 }
 
 // ── Sample projects ───────────────────────────────────────────────
@@ -144,6 +151,37 @@ const SAMPLE_BMS: BmsDocument[] = [
     changeNote: 'Initial release', revisions: [], updatedAt: new Date().toISOString() },
 ]
 
+// ── Sample workflow ───────────────────────────────────────────────
+const SAMPLE_WORKFLOWS: Workflow[] = [
+  {
+    id: 'wf1', name: 'Standard ITP Process', description: 'Inspect, approve internally, complete the works, then send to the client for approval.',
+    nodes: [
+      { id: 'n1', position: { x: 300, y: 0 },   data: { kind: 'start',     label: 'Start', description: '' } },
+      { id: 'n2', position: { x: 250, y: 100 }, data: { kind: 'procedure', label: 'Prepare work area', description: 'Isolate and prepare the area; confirm drawings are the latest revision.' } },
+      { id: 'n3', position: { x: 250, y: 230 }, data: { kind: 'checklist', label: 'Safety inspection', description: '', checklistTemplateId: 't1' } },
+      { id: 'n4', position: { x: 245, y: 360 }, data: { kind: 'approval',  label: 'Inspector approves?', description: 'Hold point — work cannot proceed without sign-off.', approverType: 'member', approverId: 'u2', managerInitiates: false } },
+      { id: 'n5', position: { x: 250, y: 560 }, data: { kind: 'task',      label: 'Complete the works', description: 'Carry out the works and confirm they are done.' } },
+      { id: 'n6', position: { x: 560, y: 380 }, data: { kind: 'task',      label: 'Raise NCR and rework', description: 'Record the non-conformance and correct before re-inspection.' } },
+      { id: 'n8', position: { x: 245, y: 700 }, data: { kind: 'approval',  label: 'Client approves?', description: 'Send the completed ITP to the client for sign-off.', approverType: 'client' } },
+      { id: 'n9', position: { x: 560, y: 720 }, data: { kind: 'task',      label: 'Address client comments', description: '' } },
+      { id: 'n7', position: { x: 300, y: 900 }, data: { kind: 'end',       label: 'End', description: '' } },
+    ],
+    edges: [
+      { id: 'e1', source: 'n1', target: 'n2' },
+      { id: 'e2', source: 'n2', target: 'n3' },
+      { id: 'e3', source: 'n3', target: 'n4' },
+      { id: 'e4', source: 'n4', target: 'n5', sourceHandle: 'yes' },
+      { id: 'e5', source: 'n4', target: 'n6', sourceHandle: 'no' },
+      { id: 'e6', source: 'n6', target: 'n3' },
+      { id: 'e7', source: 'n5', target: 'n8' },
+      { id: 'e8', source: 'n8', target: 'n7', sourceHandle: 'yes' },
+      { id: 'e9', source: 'n8', target: 'n9', sourceHandle: 'no' },
+      { id: 'e10', source: 'n9', target: 'n5' },
+    ],
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  },
+]
+
 // ── Store ─────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>()(
   persist(
@@ -155,6 +193,7 @@ export const useAppStore = create<AppState>()(
       tasks: SAMPLE_TASKS,
       templates: SAMPLE_TEMPLATES,
       bmsDocuments: SAMPLE_BMS,
+      workflows: SAMPLE_WORKFLOWS,
 
       setCurrentUser: (user) => set({ currentUser: user, currentProjectId: null }),
       setCurrentProjectId: (id) => set({ currentProjectId: id }),
@@ -167,8 +206,15 @@ export const useAppStore = create<AppState>()(
       updateProject: (p) => set((s) => ({ projects: s.projects.map((x) => x.id === p.id ? p : x) })),
       deleteProject: (id) => set((s) => ({ projects: s.projects.filter((x) => x.id !== id) })),
 
-      addTask: (task) => set((s) => ({ tasks: [...s.tasks, task] })),
-      updateTask: (task) => set((s) => ({ tasks: s.tasks.map((t) => t.id === task.id ? task : t) })),
+      // A task with a workflow starts running it straight away; later changes (e.g. a completed
+      // checklist) move the workflow on automatically.
+      addTask: (task) => set((s) => {
+        const wf = !task.workflowRun && task.workflowId ? s.workflows.find((w) => w.id === task.workflowId) : undefined
+        return { tasks: [...s.tasks, wf ? startRun(task, wf, s.templates) : task] }
+      }),
+      updateTask: (task) => set((s) => ({
+        tasks: s.tasks.map((t) => t.id === task.id ? syncRun(task, s.workflows, s.templates) : t),
+      })),
       deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
 
       addTemplate: (t) => set((s) => ({ templates: [...s.templates, t] })),
@@ -178,6 +224,10 @@ export const useAppStore = create<AppState>()(
       addBmsDocument: (d) => set((s) => ({ bmsDocuments: [...s.bmsDocuments, d] })),
       updateBmsDocument: (d) => set((s) => ({ bmsDocuments: s.bmsDocuments.map((x) => x.id === d.id ? d : x) })),
       deleteBmsDocument: (id) => set((s) => ({ bmsDocuments: s.bmsDocuments.filter((x) => x.id !== id) })),
+
+      addWorkflow: (w) => set((s) => ({ workflows: [...s.workflows, w] })),
+      updateWorkflow: (w) => set((s) => ({ workflows: s.workflows.map((x) => x.id === w.id ? w : x) })),
+      deleteWorkflow: (id) => set((s) => ({ workflows: s.workflows.filter((x) => x.id !== id) })),
     }),
     { name: 'itp-store' }
   )

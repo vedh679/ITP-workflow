@@ -8,6 +8,7 @@ import AddChecklistModal from '../components/AddChecklistModal'
 import ChecklistDetail from '../components/ChecklistDetail'
 import NewTaskModal from '../components/NewTaskModal'
 import ProjectSwitcher from '../components/ProjectSwitcher'
+import TaskWorkflowBanner from '../components/TaskWorkflowBanner'
 
 function statusBadge(status: Task['status']) {
   const map = {
@@ -248,6 +249,11 @@ export default function TasksPage() {
                       <span className="text-xs text-slate-500">
                         {task.checklists.length} checklist{task.checklists.length !== 1 ? 's' : ''}
                       </span>
+                      {task.workflowRun?.status === 'awaiting-initiation' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-900/60 text-amber-300">
+                          {canEdit ? 'Action needed' : 'Awaiting PM'}
+                        </span>
+                      )}
                     </div>
 
                     {/* Location */}
@@ -347,6 +353,9 @@ export default function TasksPage() {
 
           <ProjectSwitcher variant="dark" />
         </div>
+
+        {/* Workflow progress + manager prompts */}
+        {selectedTask && <TaskWorkflowBanner task={selectedTask} onOpenChecklist={(id) => { setViewMode('mindmap'); setOpenChecklistId(id) }} />}
 
         {/* Content */}
         {selectedTask ? (

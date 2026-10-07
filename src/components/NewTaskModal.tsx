@@ -12,12 +12,14 @@ interface Props {
 }
 
 export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
-  const { members, currentProjectId } = useAppStore()
+  const { members, currentProjectId, workflows } = useAppStore()
   const [name, setName] = useState(initialValues?.name ?? '')
   const [description, setDescription] = useState(initialValues?.description ?? '')
   const [location, setLocation] = useState(initialValues?.location ?? '')
   const [dueDate, setDueDate] = useState(initialValues?.dueDate ?? '')
   const [assignedTo, setAssignedTo] = useState(initialValues?.assignedTo ?? '')
+  // New tasks pick up the first workflow by default so the ITP process applies automatically
+  const [workflowId, setWorkflowId] = useState(workflows[0]?.id ?? '')
 
   const isEdit = !!initialValues
 
@@ -31,7 +33,7 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
-    onAdd({ name: name.trim(), description, location, dueDate, assignedTo })
+    onAdd({ name: name.trim(), description, location, dueDate, assignedTo, ...(!isEdit && workflowId ? { workflowId } : {}) })
   }
 
   return (
@@ -117,6 +119,18 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
                 />
               </div>
             </div>
+
+            {/* Workflow — applied automatically to new tasks */}
+            {!isEdit && workflows.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Workflow</label>
+                <select value={workflowId} onChange={(e) => setWorkflowId(e.target.value)}
+                  className="w-full bg-slate-800 text-slate-100 rounded-xl px-3 py-2.5 border border-slate-700 focus:outline-none focus:border-blue-500 text-sm">
+                  {workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  <option value="">No workflow</option>
+                </select>
+              </div>
+            )}
 
             {/* Assign to */}
             <MemberPicker

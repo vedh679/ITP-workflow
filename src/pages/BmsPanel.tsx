@@ -24,7 +24,7 @@ function bumpVersion(v: string): string {
 
 // Checklist templates are shown as documents: the checklist items are the content (one per line)
 function templateToDoc(t: ChecklistTemplate): BmsDocument {
-  return { id: t.id, title: t.name, docNumber: t.docNumber ?? '', category: CHECKLIST, description: t.description,
+  return { id: t.id, title: t.name, docNumber: t.docNumber ?? '', author: t.author, approvedBy: t.approvedBy, category: CHECKLIST, description: t.description,
     version: t.version ?? '1.0', content: t.items.map((i) => i.text).join('\n'), file: t.file,
     requiresSignature: t.requiresSignature, changeNote: t.changeNote ?? ((t.revisions?.length ?? 0) === 0 ? 'Initial release' : ''),
     revisions: t.revisions, updatedAt: t.updatedAt ?? t.createdAt }
@@ -34,7 +34,7 @@ function docToTemplate(d: BmsDocument, prev?: ChecklistTemplate): ChecklistTempl
   const items = d.content.split('\n').map((l) => l.trim()).filter(Boolean).map((text, i) => ({
     id: prev?.items.find((it) => it.text === text)?.id ?? `item-${Date.now()}-${i}`, text, completed: false }))
   return { id: d.id, name: d.title, description: d.description, items, requiresSignature: !!d.requiresSignature,
-    createdAt: prev?.createdAt ?? d.updatedAt, docNumber: d.docNumber, version: d.version, changeNote: d.changeNote,
+    createdAt: prev?.createdAt ?? d.updatedAt, docNumber: d.docNumber, author: d.author, approvedBy: d.approvedBy, version: d.version, changeNote: d.changeNote,
     revisions: d.revisions, file: d.file, updatedAt: d.updatedAt }
 }
 
@@ -63,7 +63,7 @@ type Snapshot = Omit<BmsRevision, 'archivedAt'>
 
 function snapshotOf(d: BmsDocument): Snapshot {
   return { version: d.version, title: d.title, docNumber: d.docNumber, category: d.category, description: d.description,
-    content: d.content, file: d.file, requiresSignature: d.requiresSignature, changeNote: d.changeNote ?? '', createdAt: d.updatedAt }
+    content: d.content, file: d.file, author: d.author, approvedBy: d.approvedBy, requiresSignature: d.requiresSignature, changeNote: d.changeNote ?? '', createdAt: d.updatedAt }
 }
 
 function metaChanges(prev: Snapshot, cur: Snapshot): string[] {
@@ -72,6 +72,8 @@ function metaChanges(prev: Snapshot, cur: Snapshot): string[] {
     ['Document no.', prev.docNumber, cur.docNumber],
     ['Category', prev.category, cur.category],
     ['Description', prev.description, cur.description],
+    ['Author', prev.author ?? '', cur.author ?? ''],
+    ['Approved by', prev.approvedBy ?? '', cur.approvedBy ?? ''],
     ['File', prev.file?.name ?? 'none', cur.file?.name ?? 'none'],
     ['Signature required', String(!!prev.requiresSignature), String(!!cur.requiresSignature)],
   ]
@@ -305,6 +307,10 @@ export default function BmsPanel() {
               <div><label className={label}>{isExisting ? 'New version' : 'Version'}</label><input className={input} value={draft.version} onChange={(e) => setDraft({ ...draft, version: e.target.value })} /></div>
             </div>
             <div><label className={label}>Description</label><input className={input} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={label}>Author</label><input className={input} value={draft.author ?? ''} onChange={(e) => setDraft({ ...draft, author: e.target.value })} /></div>
+              <div><label className={label}>Approved by</label><input className={input} value={draft.approvedBy ?? ''} onChange={(e) => setDraft({ ...draft, approvedBy: e.target.value })} /></div>
+            </div>
             {isChecklist ? (
               <div><label className={label}>Checklist items</label>
                 <ChecklistEditor content={draft.content} onChange={(c) => setDraft({ ...draft, content: c })} /></div>
@@ -349,6 +355,10 @@ export default function BmsPanel() {
               </div>
             </div>
             {selected.description && <p className="text-sm text-slate-300">{selected.description}</p>}
+            <div className="flex gap-6 text-sm">
+              <p><span className="text-slate-500">Author: </span><span className="text-slate-200">{selected.author || '—'}</span></p>
+              <p><span className="text-slate-500">Approved by: </span><span className="text-slate-200">{selected.approvedBy || '—'}</span></p>
+            </div>
             {selected.category === CHECKLIST
               ? <ChecklistView content={selected.content} signature={selected.requiresSignature} />
               : <pre className="whitespace-pre-wrap bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 font-mono">{selected.content || 'No template content.'}</pre>}
