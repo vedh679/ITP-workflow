@@ -8,6 +8,8 @@ import AdminPage from './pages/AdminPage'
 export default function App() {
   return (
     <BrowserRouter>
+      {/* Full-screen white app */}
+      <div className="h-screen w-screen bg-white overflow-hidden relative">
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/select-project" element={<ProjectSelectPage />} />
@@ -16,6 +18,7 @@ export default function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </div>
     </BrowserRouter>
   )
 }

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
+import Logo from '../components/Logo'
 
 const ROLE_BADGE: Record<string, string> = {
-  admin:    'bg-purple-100 text-purple-700',
-  manager:  'bg-blue-100 text-blue-700',
+  admin:    'bg-ink text-white',
+  manager:  'bg-coral-tint text-coral-dark',
   engineer: 'bg-green-100 text-green-700',
 }
 
@@ -39,67 +40,62 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="h-full overflow-y-auto flex p-6">
+      <div className="w-full max-w-md py-6 m-auto">
         {/* Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/20 backdrop-blur mb-4">
-            <svg className="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">ITP Workflow</h1>
-          <p className="text-blue-200 mt-1 text-sm">Inspection & Test Plan Management</p>
+        <div className="flex flex-col items-center text-center mb-8">
+          <Logo size={56} />
+          <h1 className="text-4xl font-normal text-ink tracking-tight mt-5">ITP Workflow</h1>
+          <p className="text-slate-400 mt-1.5 text-base">Inspection & Test Plan Management</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-1">Sign in</h2>
-          <p className="text-gray-500 text-sm mb-6">Enter your email address to continue</p>
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-7">
+          <h2 className="text-xl font-semibold text-ink mb-1">Sign in</h2>
+          <p className="text-slate-400 text-sm mb-6">Enter your email address to continue</p>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
+              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email address</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError('') }}
                 placeholder="you@itp.com"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-400 transition"
+                className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-700 focus:outline-none focus:border-ink text-ink placeholder-slate-500 transition"
                 autoFocus
               />
             </div>
 
             {error && (
-              <div className="bg-red-50 text-red-600 text-sm rounded-lg px-4 py-3 border border-red-100">
+              <div className="bg-red-50 text-red-600 text-sm rounded-2xl px-4 py-3 border border-red-100">
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 rounded-xl transition-colors shadow-sm"
+              className="w-full bg-ink hover:bg-ink-soft text-white font-semibold py-3 rounded-full transition-colors shadow-float"
             >
               Continue
             </button>
           </form>
 
           {/* Test accounts */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide mb-3">Test accounts</p>
-            <div className="space-y-1.5">
+          <div className="mt-6 pt-6 border-t border-slate-800">
+            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wide mb-3">Test accounts</p>
+            <div className="space-y-1">
               {members.map((u) => (
                 <button
                   key={u.email}
                   onClick={() => setEmail(u.email)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors group"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-2xl hover:bg-white transition-colors group"
                 >
                   <div className="text-left">
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600">{u.name}</span>
-                    <span className="text-xs text-gray-400 block">{u.email}</span>
+                    <span className="text-sm font-medium text-slate-200 group-hover:text-ink">{u.name}</span>
+                    <span className="text-xs text-slate-500 block">{u.email}</span>
                   </div>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ROLE_BADGE[u.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_BADGE[u.role] ?? 'bg-slate-800 text-slate-400'}`}>
                     {u.role}
                   </span>
                 </button>

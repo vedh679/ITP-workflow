@@ -110,7 +110,7 @@ function EditableGrid({ table, onChange }: { table: CustomTable; onChange: (t: C
   }
 
   const cellCls = 'relative border-r border-b border-slate-700 min-w-[120px]'
-  const editInputCls = 'w-full h-full px-2 py-1.5 bg-blue-950/60 text-white text-sm outline-none border-2 border-blue-500 rounded-sm'
+  const editInputCls = 'w-full h-full px-2 py-1.5 bg-white text-ink text-sm outline-none border-2 border-blue-500 rounded-sm'
   const displayCls = 'px-2 py-1.5 text-sm text-slate-300 cursor-text select-none truncate min-h-[34px] hover:bg-slate-800/60'
 
   return (
@@ -130,7 +130,7 @@ function EditableGrid({ table, onChange }: { table: CustomTable; onChange: (t: C
                     onChange={(e) => setHeader(c, e.target.value)}
                     onBlur={() => setEditHeader(null)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditHeader(null) }}
-                    className="w-full px-2 py-1.5 bg-blue-950/60 text-white text-xs font-bold outline-none border-2 border-blue-500"
+                    className="w-full px-2 py-1.5 bg-white text-ink text-xs font-bold outline-none border-2 border-blue-500"
                   />
                 ) : (
                   <div
@@ -382,7 +382,7 @@ function ITPSheet({ task, members }: { task: Task; members: AppUser[] }) {
             ].map(({ label, value }) => (
               <div key={label} className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
                 <p className="text-xs text-slate-500 mb-1">{label}</p>
-                <p className="text-lg font-bold text-white">{value}</p>
+                <p className="text-lg font-bold text-ink">{value}</p>
               </div>
             ))}
           </div>
@@ -460,7 +460,7 @@ function ChecklistsSheet({ task, members }: { task: Task; members: AppUser[] }) 
               <tr key={cl.id} className={idx % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/40'}>
                 <RowNum n={idx + 1} />
                 <Td className="text-slate-500 font-mono text-xs">{String(idx + 1).padStart(2, '0')}</Td>
-                <Td className="font-medium text-white whitespace-nowrap">{cl.templateName}</Td>
+                <Td className="font-medium text-ink whitespace-nowrap">{cl.templateName}</Td>
                 <Td className="whitespace-nowrap">{nameOf(cl.assignedTo, members)}</Td>
                 <Td className="text-center">{done}</Td>
                 <Td className="text-center">{total}</Td>
@@ -661,7 +661,7 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -671,9 +671,9 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
                   d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-white">Export as PDF</h2>
+            <h2 className="text-base font-bold text-ink">Export as PDF</h2>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
+          <button onClick={onClose} className="text-slate-500 hover:text-ink transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -686,7 +686,7 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Always included</p>
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700">
               <div className="w-5 h-5 rounded bg-blue-600 flex items-center justify-center flex-shrink-0">
-                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-3 h-3 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
@@ -699,7 +699,7 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
                 onClick={() => setIncludeTable(v => !v)}
                 className={`mt-2 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
                   includeTable
-                    ? 'bg-blue-600/10 border-blue-600/40'
+                    ? 'bg-coral-tint border-coral'
                     : 'bg-slate-800/30 border-slate-700 hover:border-slate-500'
                 }`}
               >
@@ -707,7 +707,7 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
                   includeTable ? 'bg-blue-600 border-blue-600' : 'border-slate-600'
                 }`}>
                   {includeTable && (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
@@ -748,7 +748,7 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
                       onClick={() => toggleCl(cl.id)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
                         checked
-                          ? 'bg-blue-600/10 border-blue-600/40'
+                          ? 'bg-coral-tint border-coral'
                           : 'bg-slate-800/30 border-slate-700 hover:border-slate-500'
                       }`}
                     >
@@ -756,7 +756,7 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
                         checked ? 'bg-blue-600 border-blue-600' : 'border-slate-600'
                       }`}>
                         {checked && (
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-3 h-3 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
@@ -786,7 +786,7 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
           </button>
           <button
             onClick={handleExport}
-            className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -840,7 +840,7 @@ export default function TaskTableView({ task, members }: Props) {
             onClick={() => setSheet(s.id)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-t-lg text-sm font-medium transition-all border-t border-l border-r -mb-px ${
               sheet === s.id
-                ? 'bg-slate-950 border-slate-700 text-white'
+                ? 'bg-slate-950 border-slate-700 text-ink'
                 : 'bg-transparent border-transparent text-slate-500 hover:text-slate-300'
             }`}
           >

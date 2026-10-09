@@ -7,7 +7,7 @@ import TaskTableView from '../components/TaskTableView'
 import AddChecklistModal from '../components/AddChecklistModal'
 import ChecklistDetail from '../components/ChecklistDetail'
 import NewTaskModal from '../components/NewTaskModal'
-import ProjectSwitcher from '../components/ProjectSwitcher'
+import AppHeader from '../components/AppHeader'
 import TaskWorkflowBanner from '../components/TaskWorkflowBanner'
 
 function statusBadge(status: Task['status']) {
@@ -110,7 +110,9 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden">
+    <div className="flex flex-col h-full bg-white overflow-hidden">
+      <AppHeader active="tasks" />
+      <div className="flex flex-1 overflow-hidden">
       {/* ── Sidebar ── */}
       <aside
         className="relative flex flex-col border-r border-slate-800 bg-slate-900 transition-all duration-300 ease-in-out flex-shrink-0"
@@ -120,7 +122,7 @@ export default function TasksPage() {
         <button
           onClick={() => setSidebarOpen((v) => !v)}
           title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          className="absolute -right-3 top-6 z-20 w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors shadow-md"
+          className="absolute -right-3 top-6 z-20 w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-ink hover:bg-slate-700 transition-colors shadow-md"
         >
           <svg className={`w-3 h-3 transition-transform duration-300 ${sidebarOpen ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -130,19 +132,6 @@ export default function TasksPage() {
         {/* ── Collapsed state: icon strip ── */}
         {!sidebarOpen && (
           <div className="flex flex-col items-center pt-4 gap-3 flex-1 overflow-y-auto">
-            {/* Back home */}
-            <button
-              onClick={() => navigate('/home')}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Back to home"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-            </button>
-
-            <div className="w-5 h-px bg-slate-800" />
-
             {/* Task dots */}
             {filteredTasks.map((task) => (
               <button
@@ -151,7 +140,7 @@ export default function TasksPage() {
                 title={task.name}
                 className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
                   selectedTaskId === task.id
-                    ? 'bg-blue-600/30 text-blue-300 border border-blue-600/50'
+                    ? 'bg-coral-tint text-coral-dark border border-blue-600/50'
                     : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'
                 }`}
               >
@@ -182,19 +171,6 @@ export default function TasksPage() {
           <>
             {/* Sidebar header */}
             <div className="px-4 py-4 border-b border-slate-800">
-              <div className="flex items-center gap-2 mb-3">
-                <button
-                  onClick={() => navigate('/home')}
-                  className="text-slate-400 hover:text-white transition-colors"
-                  title="Back to home"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <h1 className="text-white font-bold text-base">Tasks</h1>
-              </div>
-
               {/* Search */}
               <div className="relative mb-3">
                 <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,7 +190,7 @@ export default function TasksPage() {
                 onClick={() => setFilterMine((v) => !v)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   filterMine
-                    ? 'bg-blue-600/20 text-blue-300 border border-blue-600/40'
+                    ? 'bg-ink text-white border border-ink'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                 }`}
               >
@@ -236,7 +212,7 @@ export default function TasksPage() {
                     onClick={() => setSelectedTaskId(task.id)}
                     className={`w-full text-left px-3 py-3 rounded-xl transition-all ${
                       selectedTaskId === task.id
-                        ? 'bg-blue-600/20 border border-blue-600/40'
+                        ? 'bg-slate-800 border border-slate-700'
                         : 'hover:bg-slate-800 border border-transparent'
                     }`}
                   >
@@ -322,7 +298,7 @@ export default function TasksPage() {
                 title="Mind map"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   viewMode === 'mindmap'
-                    ? 'bg-slate-700 text-white shadow'
+                    ? 'bg-slate-700 text-ink shadow'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -338,7 +314,7 @@ export default function TasksPage() {
                 title="Table view"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   viewMode === 'table'
-                    ? 'bg-slate-700 text-white shadow'
+                    ? 'bg-slate-700 text-ink shadow'
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
@@ -351,7 +327,6 @@ export default function TasksPage() {
             </div>
           ) : <div />}
 
-          <ProjectSwitcher variant="dark" />
         </div>
 
         {/* Workflow progress + manager prompts */}
@@ -394,7 +369,7 @@ export default function TasksPage() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto mb-4">
+              <div className="w-16 h-16 rounded-3xl bg-slate-800 flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -405,6 +380,7 @@ export default function TasksPage() {
           </div>
         )}
       </main>
+      </div>
 
       {/* Add checklist modal */}
       {showAddChecklist && selectedTask && (

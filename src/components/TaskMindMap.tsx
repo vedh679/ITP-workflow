@@ -42,20 +42,20 @@ interface AddNodeData extends Record<string, unknown> {
 function TaskNode({ data }: NodeProps) {
   const d = data as TaskNodeData
   const statusColor =
-    d.status === 'completed' ? '#22c55e' :
-    d.status === 'in-progress' ? '#3b82f6' : '#94a3b8'
+    d.status === 'completed' ? '#16A34A' :
+    d.status === 'in-progress' ? '#E2634B' : '#B8B8B8'
 
   return (
     <div
       onDoubleClick={() => d.canEdit && d.onEdit()}
       title={d.canEdit ? 'Double-click to edit' : undefined}
       style={{
-        background: 'linear-gradient(135deg,#1e3a8a,#1d4ed8)',
+        background: '#0B0B0B',
         border: `3px solid ${statusColor}`,
         borderRadius: 16,
         padding: '16px 24px',
         minWidth: 200,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        boxShadow: '0 12px 28px -10px rgba(0,0,0,0.45)',
         color: '#fff',
         textAlign: 'center',
         cursor: d.canEdit ? 'pointer' : 'default',
@@ -89,36 +89,36 @@ function ChecklistNode({ data }: NodeProps) {
     <div
       onClick={() => d.onOpen(d.checklistId)}
       style={{
-        background: '#1e293b',
-        border: `1.5px solid ${allDone ? '#22c55e' : '#334155'}`,
+        background: '#FFFFFF',
+        border: `1.5px solid ${allDone ? '#16A34A' : '#E4E4E4'}`,
         borderRadius: 12,
         padding: '12px 16px',
         minWidth: 200,
-        boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-        color: '#e2e8f0',
+        boxShadow: '0 4px 16px -6px rgba(0,0,0,0.15)',
+        color: '#262626',
         cursor: 'pointer',
         transition: 'border-color 0.2s, box-shadow 0.2s',
         userSelect: 'none',
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLDivElement
-        el.style.borderColor = '#3b82f6'
-        el.style.boxShadow = '0 4px 24px rgba(59,130,246,0.25)'
+        el.style.borderColor = '#E2634B'
+        el.style.boxShadow = '0 4px 24px rgba(226,99,75,0.25)'
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLDivElement
-        el.style.borderColor = allDone ? '#22c55e' : '#334155'
+        el.style.borderColor = allDone ? '#16A34A' : '#E4E4E4'
         el.style.boxShadow = '0 4px 16px rgba(0,0,0,0.25)'
       }}
     >
       <Handle type="target" position={Position.Left}
         style={{ background: 'transparent', border: 'none', width: 1, height: 1 }} />
 
-      <div style={{ fontWeight: 700, fontSize: 13, color: '#93c5fd', marginBottom: 10 }}>{d.label}</div>
+      <div style={{ fontWeight: 700, fontSize: 13, color: '#0B0B0B', marginBottom: 10 }}>{d.label}</div>
 
-      <div style={{ background: '#334155', borderRadius: 4, height: 4, marginBottom: 6 }}>
+      <div style={{ background: '#F1F1F1', borderRadius: 4, height: 4, marginBottom: 6 }}>
         <div style={{
-          background: allDone ? '#22c55e' : '#3b82f6',
+          background: allDone ? '#16A34A' : '#E2634B',
           width: `${pct}%`,
           height: '100%',
           borderRadius: 4,
@@ -127,8 +127,8 @@ function ChecklistNode({ data }: NodeProps) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 10, color: '#64748b' }}>{d.completed}/{d.total} complete</span>
-        <span style={{ fontSize: 10, fontWeight: 600, color: '#3b82f6' }}>Open ›</span>
+        <span style={{ fontSize: 10, color: '#8F8F8F' }}>{d.completed}/{d.total} complete</span>
+        <span style={{ fontSize: 10, fontWeight: 600, color: '#E2634B' }}>Open ›</span>
       </div>
     </div>
   )
@@ -142,11 +142,11 @@ function AddChecklistNode({ data }: NodeProps) {
       onClick={() => d.onAdd(d.taskId)}
       style={{
         background: 'transparent',
-        border: '2px dashed #334155',
+        border: '2px dashed #E4E4E4',
         borderRadius: 12,
         padding: '10px 20px',
         cursor: 'pointer',
-        color: '#475569',
+        color: '#8F8F8F',
         fontSize: 13,
         fontWeight: 600,
         display: 'flex',
@@ -157,13 +157,13 @@ function AddChecklistNode({ data }: NodeProps) {
       }}
       onMouseEnter={(e) => {
         const el = e.currentTarget as HTMLDivElement
-        el.style.borderColor = '#3b82f6'
-        el.style.color = '#3b82f6'
+        el.style.borderColor = '#E2634B'
+        el.style.color = '#E2634B'
       }}
       onMouseLeave={(e) => {
         const el = e.currentTarget as HTMLDivElement
-        el.style.borderColor = '#334155'
-        el.style.color = '#475569'
+        el.style.borderColor = '#E4E4E4'
+        el.style.color = '#8F8F8F'
       }}
     >
       <Handle type="target" position={Position.Left}
@@ -287,7 +287,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onE
         // sourceY will be rootCenterY (handle at center-right of root)
         // targetY will be nodeY + NODE_CENTER (handle at center-left of checklist)
         data: { trunkX: TRUNK_X } as TreeEdgeData,
-        style: { stroke: '#475569', strokeWidth: 1.5 },
+        style: { stroke: '#B8B8B8', strokeWidth: 1.5 },
       })
     })
 
@@ -307,7 +307,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onE
         target: 'add-node',
         type: 'treeEdge',
         data: { trunkX: TRUNK_X, dashed: true } as TreeEdgeData,
-        style: { stroke: '#334155', strokeWidth: 1.5 },
+        style: { stroke: '#D4D4D4', strokeWidth: 1.5 },
       })
     }
 
@@ -328,7 +328,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onE
   )
 
   return (
-    <div style={{ width: '100%', height: '100%', background: '#0f172a' }}>
+    <div style={{ width: '100%', height: '100%', background: '#FFFFFF' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -342,8 +342,8 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onE
         minZoom={0.3}
         maxZoom={2}
       >
-        <Background color="#1e293b" gap={24} />
-        <Controls style={{ background: '#1e293b', borderColor: '#334155', color: '#94a3b8' }} />
+        <Background color="#E4E4E4" gap={24} />
+        <Controls />
       </ReactFlow>
     </div>
   )

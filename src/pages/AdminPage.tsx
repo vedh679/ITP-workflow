@@ -11,9 +11,9 @@ import type { AppUser, Project } from '../types'
 type Tab = 'members' | 'projects' | 'bms' | 'workflow'
 
 const ROLE_BADGE: Record<string, string> = {
-  admin:    'bg-purple-900/40 text-purple-300 border-purple-800/40',
-  manager:  'bg-blue-900/40 text-blue-300 border-blue-800/40',
-  engineer: 'bg-green-900/40 text-green-300 border-green-800/40',
+  admin:    'bg-ink text-white border-ink',
+  manager:  'bg-coral-tint text-coral-dark border-coral/30',
+  engineer: 'bg-green-100 text-green-700 border-green-500/30',
 }
 const ROLE_OPTIONS = ['admin', 'manager', 'engineer'] as const
 
@@ -65,9 +65,9 @@ function MembersPanel() {
         <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
           {members.map((m) => (
             <button key={m.id} onClick={() => { setSelectedId(m.id); setEditing(null) }}
-              className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all ${selectedId === m.id && !editing ? 'bg-blue-600/20 border-blue-600/40' : 'hover:bg-slate-800 border-transparent'}`}>
+              className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all ${selectedId === m.id && !editing ? 'bg-slate-800 border-slate-700' : 'hover:bg-slate-800 border-transparent'}`}>
               <div className="flex items-center gap-2">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === 'admin' ? 'bg-purple-600/40 text-purple-300' : m.role === 'manager' ? 'bg-blue-600/40 text-blue-300' : 'bg-green-600/40 text-green-300'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === 'admin' ? 'bg-ink text-white' : m.role === 'manager' ? 'bg-coral-tint text-coral-dark' : 'bg-green-100 text-green-700'}`}>
                   {m.name.charAt(0)}
                 </div>
                 <div className="min-w-0">
@@ -80,7 +80,7 @@ function MembersPanel() {
           {members.length === 0 && <p className="text-slate-500 text-xs text-center py-6">No members</p>}
         </div>
         <div className="p-2 border-t border-slate-800">
-          <button onClick={startNew} className="w-full flex items-center justify-center gap-2 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
+          <button onClick={startNew} className="w-full flex items-center justify-center gap-2 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             Add Member
           </button>
@@ -92,10 +92,10 @@ function MembersPanel() {
         {editing ? (
           <div className="max-w-xl">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-white">{isNew ? 'Add Member' : 'Edit Member'}</h3>
+              <h3 className="text-lg font-bold text-ink">{isNew ? 'Add Member' : 'Edit Member'}</h3>
               <div className="flex gap-2">
                 <button onClick={cancel} className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm transition-colors">Cancel</button>
-                <button onClick={save}   className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Save</button>
+                <button onClick={save}   className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Save</button>
               </div>
             </div>
             <div className="space-y-4">
@@ -119,9 +119,9 @@ function MembersPanel() {
                   {ROLE_OPTIONS.map((role) => (
                     <button key={role} type="button" onClick={() => setEditing({ ...editing, role })}
                       className={`py-2 rounded-xl border text-sm font-semibold capitalize transition-all ${editing.role === role
-                        ? role === 'admin' ? 'bg-purple-600/20 border-purple-500 text-purple-300'
-                          : role === 'manager' ? 'bg-blue-600/20 border-blue-500 text-blue-300'
-                          : 'bg-green-600/20 border-green-500 text-green-300'
+                        ? role === 'admin' ? 'bg-ink border-ink text-white'
+                          : role === 'manager' ? 'bg-coral-tint border-coral text-coral-dark'
+                          : 'bg-green-100 border-green-500 text-green-700'
                         : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
                       {role}
                     </button>
@@ -147,7 +147,7 @@ function MembersPanel() {
                         <button key={p.id} type="button" onClick={() => toggleProject(p.id)}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${active ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 hover:border-slate-500 bg-slate-800/50'}`}>
                           <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${active ? 'border-blue-500 bg-blue-500' : 'border-slate-600'}`}>
-                            {active && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                            {active && <svg className="w-2.5 h-2.5 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                           </div>
                           <div>
                             <div className="text-sm font-medium text-slate-200">{p.name}</div>
@@ -165,11 +165,11 @@ function MembersPanel() {
           <div className="max-w-xl">
             <div className="flex items-start justify-between mb-5">
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${selected.role === 'admin' ? 'bg-purple-600/30 text-purple-300' : selected.role === 'manager' ? 'bg-blue-600/30 text-blue-300' : 'bg-green-600/30 text-green-300'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${selected.role === 'admin' ? 'bg-ink text-white' : selected.role === 'manager' ? 'bg-coral-tint text-coral-dark' : 'bg-green-100 text-green-700'}`}>
                   {selected.name.charAt(0)}
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-white">{selected.name}</h3>
+                  <h3 className="text-xl font-bold text-ink">{selected.name}</h3>
                   <p className="text-slate-400 text-sm">{selected.email}</p>
                 </div>
               </div>
@@ -257,7 +257,7 @@ function ProjectsPanel() {
         <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1">
           {projects.map((p) => (
             <button key={p.id} onClick={() => { setSelectedId(p.id); setEditing(null) }}
-              className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all ${selectedId === p.id && !editing ? 'bg-emerald-600/20 border-emerald-600/40' : 'hover:bg-slate-800 border-transparent'}`}>
+              className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all ${selectedId === p.id && !editing ? 'bg-slate-800 border-slate-700' : 'hover:bg-slate-800 border-transparent'}`}>
               <div className="text-sm font-medium text-slate-200 truncate">{p.name}</div>
               <div className="text-xs text-slate-500 mt-0.5">{projectMembers(p.id).length} members</div>
             </button>
@@ -277,7 +277,7 @@ function ProjectsPanel() {
         {editing ? (
           <div className="max-w-xl">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-white">{isNew ? 'New Project' : 'Edit Project'}</h3>
+              <h3 className="text-lg font-bold text-ink">{isNew ? 'New Project' : 'Edit Project'}</h3>
               <div className="flex gap-2">
                 <button onClick={cancel} className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm transition-colors">Cancel</button>
                 <button onClick={save}   className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition-colors">Save</button>
@@ -301,7 +301,7 @@ function ProjectsPanel() {
           <div className="max-w-xl">
             <div className="flex items-start justify-between mb-5">
               <div>
-                <h3 className="text-xl font-bold text-white">{selected.name}</h3>
+                <h3 className="text-xl font-bold text-ink">{selected.name}</h3>
                 {selected.description && <p className="text-slate-400 text-sm mt-1">{selected.description}</p>}
               </div>
               <div className="flex gap-2">
@@ -321,7 +321,7 @@ function ProjectsPanel() {
                 <ul className="divide-y divide-slate-800">
                   {projectMembers(selected.id).map((m) => (
                     <li key={m.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === 'admin' ? 'bg-purple-600/30 text-purple-300' : m.role === 'manager' ? 'bg-blue-600/30 text-blue-300' : 'bg-green-600/30 text-green-300'}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === 'admin' ? 'bg-ink text-white' : m.role === 'manager' ? 'bg-coral-tint text-coral-dark' : 'bg-green-100 text-green-700'}`}>
                         {m.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -367,27 +367,28 @@ export default function AdminPage() {
     return null
   }
 
-  const TABS: { key: Tab; label: string; color: string; activeClass: string }[] = [
-    { key: 'members',   label: 'Members',   color: 'text-blue-400',   activeClass: 'border-blue-500 text-blue-300 bg-blue-900/20' },
-    { key: 'projects',  label: 'Projects',  color: 'text-emerald-400',activeClass: 'border-emerald-500 text-emerald-300 bg-emerald-900/20' },
-    { key: 'bms',       label: 'BMS',       color: 'text-amber-400',  activeClass: 'border-amber-500 text-amber-300 bg-amber-900/20' },
-    { key: 'workflow',  label: 'Workflow',  color: 'text-sky-400',    activeClass: 'border-sky-500 text-sky-300 bg-sky-900/20' },
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'members',  label: 'Members' },
+    { key: 'projects', label: 'Projects' },
+    { key: 'bms',      label: 'BMS' },
+    { key: 'workflow', label: 'Workflow' },
   ]
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden flex-col">
-      {/* Top nav */}
-      <header className="flex items-center gap-4 px-6 py-3 border-b border-slate-800 bg-slate-900 flex-shrink-0">
-        <button onClick={() => navigate('/home')} className="text-slate-400 hover:text-white transition-colors">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+    <div className="flex h-full bg-white overflow-hidden flex-col">
+      {/* Top nav: back · title · centred pill tabs */}
+      <header className="flex items-center gap-4 px-8 pt-6 pb-4 flex-shrink-0 flex-wrap">
+        <button onClick={() => navigate('/home')} title="Back to home"
+          className="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink transition-colors flex items-center justify-center">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <h1 className="text-white font-bold">Admin</h1>
-        <span className="text-xs bg-purple-900/50 text-purple-300 px-2 py-0.5 rounded-full border border-purple-800/40">Admin only</span>
+        <h1 className="text-3xl font-normal tracking-tight text-ink">Admin</h1>
+        <span className="text-xs font-semibold bg-ink text-white px-3 py-1 rounded-full whitespace-nowrap">Admin only</span>
 
-        <div className="flex items-center gap-1 ml-6 bg-slate-800 rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-slate-800 rounded-full p-1 mx-auto">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all border ${tab === t.key ? t.activeClass : 'border-transparent text-slate-400 hover:text-slate-200'}`}>
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${tab === t.key ? 'bg-ink text-white' : 'text-slate-300 hover:text-ink hover:bg-white'}`}>
               {t.label}
             </button>
           ))}

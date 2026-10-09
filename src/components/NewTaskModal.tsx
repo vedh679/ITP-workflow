@@ -38,11 +38,11 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white">{isEdit ? 'Edit Task' : 'New Task'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+          <h2 className="text-lg font-bold text-ink">{isEdit ? 'Edit Task' : 'New Task'}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-ink transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -156,7 +156,7 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+              className="flex-1 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
             >
               {isEdit ? 'Save Changes' : 'Create Task'}
             </button>

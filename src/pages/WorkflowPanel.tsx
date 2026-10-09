@@ -115,7 +115,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
     if (window.confirm(`Delete workflow "${workflow.name}"?`)) deleteWorkflow(workflow.id)
   }
 
-  const input = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500'
+  const input = 'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-ink placeholder-slate-500 focus:outline-none focus:border-purple-500'
   const label = 'block text-xs font-semibold text-slate-400 mb-1'
 
   return (
@@ -123,13 +123,13 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
       {/* Header */}
       <div className="flex items-center gap-3 px-6 py-3 border-b border-slate-800 flex-shrink-0">
         <div className="flex-1 min-w-0 space-y-1">
-          <input className="w-full bg-transparent text-white font-bold text-lg focus:outline-none border-b border-transparent focus:border-purple-500"
+          <input className="w-full bg-transparent text-ink font-bold text-lg focus:outline-none border-b border-transparent focus:border-purple-500"
             value={name} onChange={(e) => setName(e.target.value)} placeholder="Workflow name" />
           <input className="w-full bg-transparent text-sm text-slate-400 focus:outline-none border-b border-transparent focus:border-purple-500"
             value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" />
         </div>
         {dirty && <span className="text-xs text-amber-300">Unsaved changes</span>}
-        <button onClick={save} disabled={!dirty} className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-semibold">Save</button>
+        <button onClick={save} disabled={!dirty} className="px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-semibold">Save</button>
         <button onClick={removeWorkflow} className="px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-sm font-semibold">Delete</button>
       </div>
 
@@ -159,13 +159,13 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
             fitView fitViewOptions={{ padding: 0.3 }} minZoom={0.3} maxZoom={1.75}
             proOptions={{ hideAttribution: true }}
           >
-            <Background color="#1e293b" gap={24} />
-            <Controls style={{ background: '#1e293b', borderColor: '#334155' }} />
+            <Background color="#E4E4E4" gap={24} />
+            <Controls />
           </ReactFlow>
           {warnings.length > 0 && (
-            <details className="absolute bottom-3 left-3 max-w-sm bg-slate-900/95 border border-amber-800/50 rounded-xl px-3 py-2 text-xs text-amber-200">
+            <details className="absolute bottom-3 left-3 max-w-sm bg-amber-50 border border-amber-100 rounded-2xl px-3 py-2 text-xs text-amber-700 shadow-float">
               <summary className="cursor-pointer font-semibold">{warnings.length} thing{warnings.length === 1 ? '' : 's'} to fix</summary>
-              <ul className="mt-2 space-y-1 list-disc pl-4 text-amber-100/80">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+              <ul className="mt-2 space-y-1 list-disc pl-4 text-amber-700">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
             </details>
           )}
         </div>
@@ -251,14 +251,14 @@ export default function WorkflowPanel() {
     <>
       <aside className="w-72 border-r border-slate-800 bg-slate-900 flex flex-col flex-shrink-0">
         <div className="p-3 border-b border-slate-800">
-          <button onClick={create} className="w-full px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold">+ New workflow</button>
+          <button onClick={create} className="w-full px-3 py-2 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold">+ New workflow</button>
         </div>
         <div className="flex-1 overflow-y-auto">
           {workflows.length === 0 && <p className="p-4 text-sm text-slate-500">No workflows yet.</p>}
           {workflows.map((w) => (
             <button key={w.id} onClick={() => setSelectedId(w.id)}
               className={`w-full text-left px-4 py-3 border-b border-slate-800 hover:bg-slate-800 ${selected?.id === w.id ? 'bg-slate-800' : ''}`}>
-              <p className="text-sm font-semibold text-white truncate">{w.name}</p>
+              <p className="text-sm font-semibold text-ink truncate">{w.name}</p>
               <p className="text-xs text-slate-500 mt-0.5">{w.nodes.length} steps · Updated {new Date(w.updatedAt).toLocaleDateString()}</p>
             </button>
           ))}

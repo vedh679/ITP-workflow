@@ -83,9 +83,9 @@ export default function MemberPicker({
         /* ── Selected state chip ── */
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-blue-500 bg-blue-500/10">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-            selected.role === 'admin'    ? 'bg-purple-600/40 text-purple-200' :
-            selected.role === 'manager' ? 'bg-blue-600/40   text-blue-200'   :
-                                          'bg-green-600/40  text-green-200'
+            selected.role === 'admin'    ? 'bg-ink text-white' :
+            selected.role === 'manager' ? 'bg-coral-tint text-coral-dark'   :
+                                          'bg-green-100 text-green-700'
           }`}>
             {selected.name.charAt(0)}
           </div>
@@ -102,7 +102,7 @@ export default function MemberPicker({
           <button
             type="button"
             onClick={handleClear}
-            className="flex-shrink-0 text-slate-500 hover:text-white transition-colors"
+            className="flex-shrink-0 text-slate-500 hover:text-ink transition-colors"
             title="Change"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,14 +142,14 @@ export default function MemberPicker({
                     onClick={() => handleSelect(m.email)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors ${
                       m.email === value
-                        ? 'bg-blue-600/20 text-white'
+                        ? 'bg-blue-600/20 text-ink'
                         : 'text-slate-300 hover:bg-slate-800'
                     }`}
                   >
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                      m.role === 'admin'    ? 'bg-purple-600/40 text-purple-200' :
-                      m.role === 'manager' ? 'bg-blue-600/40   text-blue-200'   :
-                                             'bg-green-600/40  text-green-200'
+                      m.role === 'admin'    ? 'bg-ink text-white' :
+                      m.role === 'manager' ? 'bg-coral-tint text-coral-dark'   :
+                                             'bg-green-100 text-green-700'
                     }`}>
                       {m.name.charAt(0)}
                     </div>
@@ -187,7 +187,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   return (
     <span className="text-sm font-medium truncate">
       {text.slice(0, idx)}
-      <mark className="bg-blue-500/30 text-white rounded px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      <mark className="bg-blue-500/30 text-ink rounded px-0.5">{text.slice(idx, idx + query.length)}</mark>
       {text.slice(idx + query.length)}
     </span>
   )

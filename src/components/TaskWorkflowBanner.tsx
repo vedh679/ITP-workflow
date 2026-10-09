@@ -36,7 +36,7 @@ export default function TaskWorkflowBanner({ task, onOpenChecklist }: Props) {
           {workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
         <button onClick={() => updateTask(startRun(task, chosen, templates))}
-          className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">Start workflow</button>
+          className="px-3 py-1 rounded-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">Start workflow</button>
       </div>
     )
   }
@@ -64,24 +64,24 @@ export default function TaskWorkflowBanner({ task, onOpenChecklist }: Props) {
     <div className="flex-shrink-0 border-b border-slate-800 bg-slate-900/60">
       {/* Manager prompt */}
       {awaiting && node && (
-        <div className="px-4 py-3 bg-amber-950/60 border-b border-amber-800/40 flex items-center gap-4 flex-wrap">
-          <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold">!</div>
+        <div className="px-4 py-3 bg-amber-50 border-b border-amber-100 flex items-center gap-4 flex-wrap">
+          <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">!</div>
           <div className="flex-1 min-w-[220px]">
             {manager ? (
               <>
-                <p className="text-sm font-semibold text-amber-200">Ready for the next stage</p>
-                <p className="text-xs text-amber-100/70">The previous steps are complete. Next: <span className="font-semibold">{node.data.label || meta?.label}</span>{node.data.description ? ` — ${node.data.description}` : ''}</p>
+                <p className="text-sm font-semibold text-amber-700">Ready for the next stage</p>
+                <p className="text-xs text-amber-700/80">The previous steps are complete. Next: <span className="font-semibold">{node.data.label || meta?.label}</span>{node.data.description ? ` — ${node.data.description}` : ''}</p>
               </>
             ) : (
               <>
-                <p className="text-sm font-semibold text-amber-200">Waiting for the project manager</p>
-                <p className="text-xs text-amber-100/70">The project manager needs to initiate: {node.data.label || meta?.label}</p>
+                <p className="text-sm font-semibold text-amber-700">Waiting for the project manager</p>
+                <p className="text-xs text-amber-700/80">The project manager needs to initiate: {node.data.label || meta?.label}</p>
               </>
             )}
           </div>
           {manager && (
             <button onClick={() => apply(initiateStep(task, wf, templates, by))}
-              className={`${btn} !px-4 !py-2 !text-sm bg-amber-500 hover:bg-amber-400 text-slate-950`}>{initiateLabel(node)}</button>
+              className={`${btn} !px-4 !py-2 !text-sm bg-ink hover:bg-ink-soft text-white`}>{initiateLabel(node)}</button>
           )}
         </div>
       )}
@@ -96,7 +96,7 @@ export default function TaskWorkflowBanner({ task, onOpenChecklist }: Props) {
             Now: {node.data.label || meta.label}
           </span>
         )}
-        <button onClick={() => setExpanded((v) => !v)} className="ml-auto text-xs text-slate-400 hover:text-white">{expanded ? 'Hide flow ▴' : 'View flow ▾'}</button>
+        <button onClick={() => setExpanded((v) => !v)} className="ml-auto text-xs text-slate-400 hover:text-ink">{expanded ? 'Hide flow ▴' : 'View flow ▾'}</button>
       </div>
 
       {/* Current step actions */}

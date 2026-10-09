@@ -43,7 +43,7 @@ function StepBar({ step, total, requiresSignature }: { step: Step; total: number
                 ) : s.n}
               </div>
               <span className={`text-xs font-medium transition-colors ${
-                active ? 'text-white' : done ? 'text-green-400' : 'text-slate-600'
+                active ? 'text-ink' : done ? 'text-green-400' : 'text-slate-600'
               }`}>{s.label}</span>
             </div>
           </div>
@@ -69,7 +69,7 @@ function PageChecks({
       <div className="max-w-2xl mx-auto">
         {/* Summary pill */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Inspection Checks</h2>
+          <h2 className="text-xl font-bold text-ink">Inspection Checks</h2>
           <span className={`px-4 py-1.5 rounded-full text-sm font-semibold ${
             done === total && total > 0
               ? 'bg-green-900/40 text-green-400 border border-green-800'
@@ -96,7 +96,7 @@ function PageChecks({
               key={item.id}
               type="button"
               onClick={() => onToggle(item.id)}
-              className={`w-full flex items-start gap-4 p-5 rounded-2xl border text-left transition-all duration-200 ${
+              className={`w-full flex items-start gap-4 p-5 rounded-3xl border text-left transition-all duration-200 ${
                 item.completed
                   ? 'bg-green-950/25 border-green-800/50'
                   : 'bg-slate-900 border-slate-800 hover:border-slate-600'
@@ -107,7 +107,7 @@ function PageChecks({
                 item.completed ? 'bg-green-500 border-green-500' : 'border-slate-600'
               }`}>
                 {item.completed && (
-                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                   </svg>
                 )}
@@ -177,7 +177,7 @@ function PageAttachments({
     <div className="flex-1 overflow-y-auto px-8 py-6">
       <div className="max-w-2xl mx-auto">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-bold text-white">Attachments</h2>
+          <h2 className="text-xl font-bold text-ink">Attachments</h2>
           <span className="text-xs text-slate-500 font-medium px-3 py-1 bg-slate-800 rounded-full">Optional</span>
         </div>
         <p className="text-slate-400 text-sm mb-6">Upload any photos, drawings, or documents relevant to this inspection.</p>
@@ -192,7 +192,7 @@ function PageAttachments({
             readFiles(e.dataTransfer.files)
           }}
           onClick={() => fileRef.current?.click()}
-          className={`relative flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed py-12 cursor-pointer transition-all duration-200 ${
+          className={`relative flex flex-col items-center justify-center gap-3 rounded-3xl border-2 border-dashed py-12 cursor-pointer transition-all duration-200 ${
             dragOver
               ? 'border-blue-500 bg-blue-500/10'
               : 'border-slate-700 hover:border-slate-500 bg-slate-900/50 hover:bg-slate-800/50'
@@ -205,7 +205,7 @@ function PageAttachments({
             </div>
           ) : (
             <>
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${
+              <div className={`w-14 h-14 rounded-3xl flex items-center justify-center transition-colors ${
                 dragOver ? 'bg-blue-500/20' : 'bg-slate-800'
               }`}>
                 <svg className={`w-7 h-7 transition-colors ${dragOver ? 'text-blue-400' : 'text-slate-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,7 +233,7 @@ function PageAttachments({
           <div className="mt-6 space-y-3">
             <p className="text-sm font-semibold text-slate-400">{attachments.length} file{attachments.length !== 1 ? 's' : ''} attached</p>
             {attachments.map((att) => (
-              <div key={att.id} className="flex items-center gap-4 p-4 bg-slate-900 border border-slate-800 rounded-2xl group">
+              <div key={att.id} className="flex items-center gap-4 p-4 bg-slate-900 border border-slate-800 rounded-3xl group">
                 {/* Preview / icon */}
                 <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-800 flex items-center justify-center">
                   {isImage(att.mimeType) ? (
@@ -302,7 +302,7 @@ function PageSignOff({
               </svg>
             )}
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">
+          <h2 className="text-2xl font-bold text-ink mb-2">
             {allDone ? 'All checks complete!' : 'Incomplete checks'}
           </h2>
           <p className="text-slate-400 text-sm">
@@ -320,7 +320,7 @@ function PageSignOff({
     <div className="flex-1 flex flex-col items-center justify-center px-8 py-6">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <div className={`w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center ${
+          <div className={`w-16 h-16 rounded-3xl mx-auto mb-4 flex items-center justify-center ${
             isSigned ? 'bg-green-500/20' : 'bg-amber-500/20'
           }`}>
             <svg className={`w-8 h-8 ${isSigned ? 'text-green-400' : 'text-amber-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,7 +328,7 @@ function PageSignOff({
                 d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">
+          <h2 className="text-2xl font-bold text-ink mb-2">
             {isSigned ? 'Signed off' : 'Sign off required'}
           </h2>
           <p className="text-slate-400 text-sm">
@@ -339,7 +339,7 @@ function PageSignOff({
         </div>
 
         {isSigned && checklist.signature ? (
-          <div className="bg-green-950/30 border border-green-800/40 rounded-2xl p-5">
+          <div className="bg-green-950/30 border border-green-800/40 rounded-3xl p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -362,7 +362,7 @@ function PageSignOff({
             </button>
           </div>
         ) : (
-          <div className="bg-slate-900 border border-amber-900/30 rounded-2xl p-5 space-y-3">
+          <div className="bg-slate-900 border border-amber-900/30 rounded-3xl p-5 space-y-3">
             <label className="block text-sm font-medium text-slate-300">
               Your full name
             </label>
@@ -532,7 +532,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
         <div className="flex items-center gap-3 mb-5">
           <button
             onClick={onClose}
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm font-medium flex-shrink-0"
+            className="flex items-center gap-1.5 text-slate-400 hover:text-ink transition-colors text-sm font-medium flex-shrink-0"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -544,7 +544,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
 
           <div className="flex-1 min-w-0">
             <p className="text-xs text-slate-500 font-medium truncate">{task.name}</p>
-            <h1 className="text-base font-bold text-white truncate">{liveChecklist.templateName}</h1>
+            <h1 className="text-base font-bold text-ink truncate">{liveChecklist.templateName}</h1>
           </div>
 
           {/* Assigned pill — clickable for managers to reassign */}
@@ -554,7 +554,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
               title={canManage ? 'Click to reassign' : undefined}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 flex-shrink-0 transition-colors ${canManage ? 'hover:border-blue-500 cursor-pointer' : 'cursor-default'}`}
             >
-              <div className="w-5 h-5 rounded-full bg-blue-600/40 text-blue-300 flex items-center justify-center text-xs font-bold">
+              <div className="w-5 h-5 rounded-full bg-coral-tint text-coral-dark flex items-center justify-center text-xs font-bold">
                 {(memberNameMap[liveChecklist.assignedTo] ?? liveChecklist.assignedTo).charAt(0)}
               </div>
               <span className="text-xs text-slate-300 font-medium">
@@ -583,7 +583,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
             <div ref={menuRef} className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-ink hover:bg-slate-800 transition-colors"
                 title="More actions"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -595,7 +595,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
                 <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-30">
                   <button
                     onClick={handleExportPDF}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-ink transition-colors text-left"
                   >
                     <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -605,7 +605,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
                   </button>
                   <button
                     onClick={() => { setMenuOpen(false); setShowReassign(true) }}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 hover:text-ink transition-colors text-left"
                   >
                     <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -635,8 +635,8 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
       {/* ── Reassign modal ── */}
       {showReassign && (
         <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-            <h3 className="text-base font-bold text-white mb-4">Change assignee</h3>
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-sm p-6">
+            <h3 className="text-base font-bold text-ink mb-4">Change assignee</h3>
             <MemberPicker
               members={projectMembers}
               value={liveChecklist.assignedTo ?? ''}
@@ -648,7 +648,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
             />
             <button
               onClick={() => setShowReassign(false)}
-              className="mt-3 w-full py-2 rounded-xl border border-slate-700 text-slate-400 hover:text-white text-sm transition-colors"
+              className="mt-3 w-full py-2 rounded-xl border border-slate-700 text-slate-400 hover:text-ink text-sm transition-colors"
             >
               Cancel
             </button>
@@ -659,13 +659,13 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
       {/* ── Delete confirmation ── */}
       {confirmDelete && (
         <div className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-sm p-6">
             <div className="w-12 h-12 rounded-xl bg-red-900/30 flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </div>
-            <h3 className="text-base font-bold text-white text-center mb-1">Delete checklist?</h3>
+            <h3 className="text-base font-bold text-ink text-center mb-1">Delete checklist?</h3>
             <p className="text-slate-400 text-sm text-center mb-6">
               <strong className="text-slate-300">{liveChecklist.templateName}</strong> will be permanently removed from this task.
             </p>
@@ -712,7 +712,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
         {step > 1 ? (
           <button
             onClick={() => setStep((s) => (s - 1) as Step)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-700 text-slate-300 hover:text-ink hover:border-slate-500 text-sm font-medium transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -727,7 +727,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
         {step < 3 ? (
           <button
             onClick={() => setStep((s) => (s + 1) as Step)}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors"
           >
             Continue
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
