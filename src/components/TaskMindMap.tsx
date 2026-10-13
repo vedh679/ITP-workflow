@@ -343,7 +343,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onE
         maxZoom={2}
       >
         <Background color="#E4E4E4" gap={24} />
-        <Controls />
+        <Controls position="bottom-right" style={{ marginBottom: 28 }} />
       </ReactFlow>
     </div>
   )

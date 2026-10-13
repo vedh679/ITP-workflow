@@ -368,8 +368,8 @@ export default function AdminPage() {
   }
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'members',  label: 'Members' },
     { key: 'projects', label: 'Projects' },
+    { key: 'members',  label: 'Members' },
     { key: 'bms',      label: 'BMS' },
     { key: 'workflow', label: 'Workflow' },
   ]
@@ -377,15 +377,18 @@ export default function AdminPage() {
   return (
     <div className="flex h-full bg-white overflow-hidden flex-col">
       {/* Top nav: back · title · centred pill tabs */}
-      <header className="flex items-center gap-4 px-8 pt-6 pb-4 flex-shrink-0 flex-wrap">
-        <button onClick={() => navigate('/home')} title="Back to home"
-          className="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink transition-colors flex items-center justify-center">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 19l-7-7 7-7" /></svg>
-        </button>
-        <h1 className="text-3xl font-normal tracking-tight text-ink">Admin</h1>
-        <span className="text-xs font-semibold bg-ink text-white px-3 py-1 rounded-full whitespace-nowrap">Admin only</span>
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-8 pt-6 pb-4 flex-shrink-0">
+        <div className="flex items-center gap-4 justify-self-start min-w-0">
+          <button onClick={() => navigate('/home')} title="Back to home"
+            className="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink transition-colors flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <h1 className="text-3xl font-normal tracking-tight text-ink">Admin</h1>
+          <span className="hidden xl:inline text-xs font-semibold bg-ink text-white px-3 py-1 rounded-full whitespace-nowrap">Admin only</span>
+        </div>
 
-        <div className="flex items-center gap-1 bg-slate-800 rounded-full p-1 mx-auto">
+        {/* Centred on the window */}
+        <div className="flex items-center gap-1 bg-slate-800 rounded-full p-1">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${tab === t.key ? 'bg-ink text-white' : 'text-slate-300 hover:text-ink hover:bg-white'}`}>
@@ -393,6 +396,7 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+        <div />
       </header>
 
       {/* Tab content */}

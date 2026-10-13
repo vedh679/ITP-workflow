@@ -160,7 +160,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
             proOptions={{ hideAttribution: true }}
           >
             <Background color="#E4E4E4" gap={24} />
-            <Controls />
+            <Controls position="bottom-right" />
           </ReactFlow>
           {warnings.length > 0 && (
             <details className="absolute bottom-3 left-3 max-w-sm bg-amber-50 border border-amber-100 rounded-2xl px-3 py-2 text-xs text-amber-700 shadow-float">

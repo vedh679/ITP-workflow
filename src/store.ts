@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { startRun, syncRun } from './workflow'
-import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow } from './types'
+import { blocksToText, field, heading, para } from './docBlocks'
+import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow, ProjectDocument, ProjectOrgEntry } from './types'
 
 interface AppState {
   currentUser: AppUser | null
@@ -12,6 +13,8 @@ interface AppState {
   templates: ChecklistTemplate[]
   bmsDocuments: BmsDocument[]
   workflows: Workflow[]
+  projectDocuments: ProjectDocument[]
+  projectOrg: ProjectOrgEntry[]
 
   setCurrentUser: (user: AppUser | null) => void
   setCurrentProjectId: (id: string | null) => void
@@ -45,6 +48,11 @@ interface AppState {
   addWorkflow: (workflow: Workflow) => void
   updateWorkflow: (workflow: Workflow) => void
   deleteWorkflow: (id: string) => void
+
+  // Project documents: a project takes up (or updates to) a version of a BMS document
+  adoptProjectDocument: (projectId: string, bmsDocumentId: string, version: string, by: string) => void
+  setProjectOrgEntry: (projectId: string, memberId: string, patch: Partial<Pick<ProjectOrgEntry, 'title' | 'reportsToId'>>) => void
+  saveProjectDocumentFields: (projectId: string, bmsDocumentId: string, values: Record<string, string>, by: string) => void
 }
 
 // ── Sample projects ───────────────────────────────────────────────
@@ -136,18 +144,38 @@ const SAMPLE_TASKS: Task[] = [
 ]
 
 // ── Sample BMS documents ──────────────────────────────────────────
+const qmBlocks = [
+  heading('1. Purpose', 2), para('This manual describes how the business plans, controls and improves the quality of its work.'),
+  heading('2. Scope', 2), para('It applies to all projects, sites and personnel working under the business management system.'),
+  heading('3. Project details', 2), field('Project name'), field('Project manager'),
+  heading('4. Responsibilities', 2), para('Project managers are responsible for applying this manual on their projects and keeping project records up to date.'),
+  heading('5. Project quality objectives', 2), field('Quality objectives for this project', 'long', 'List the measurable objectives the project team will work to.'),
+]
+const itpBlocks = [
+  heading('Inspection & Test Plan', 1),
+  para('Complete this plan before work starts. Each inspection point must be signed off before the next activity begins.'),
+  field('Project'), field('Activity'), field('Location / area'),
+  heading('Inspection points', 2), field('Inspection points and acceptance criteria', 'long', 'One per line: inspection point, acceptance criteria, hold or witness.'),
+  field('Date prepared', 'date'),
+]
+const ncrBlocks = [
+  heading('Non-Conformance Report', 1),
+  para('Record every non-conformance and close it out with corrective action.'),
+  field('NCR number'), field('Date raised', 'date'), field('Description of non-conformance', 'long'),
+  field('Root cause', 'long'), field('Corrective action', 'long'), field('Closed out by'),
+]
 const SAMPLE_BMS: BmsDocument[] = [
   { id: 'bms1', title: 'Quality Manual', docNumber: 'BMS-QM-001', category: 'Manual', version: '1.0',
     description: 'Top-level description of the quality management system.',
-    content: '1. Purpose\n2. Scope\n3. Company policy\n4. Responsibilities\n5. Document control',
+    blocks: qmBlocks, content: blocksToText(qmBlocks),
     changeNote: 'Initial release', revisions: [], updatedAt: new Date().toISOString() },
   { id: 'bms2', title: 'Inspection & Test Plan Template', docNumber: 'BMS-TP-010', category: 'Template', version: '1.0',
     description: 'Standard ITP layout used on all projects.',
-    content: 'Project:\nActivity:\nInspection point | Acceptance criteria | Hold/Witness | Sign-off',
+    blocks: itpBlocks, content: blocksToText(itpBlocks),
     changeNote: 'Initial release', revisions: [], updatedAt: new Date().toISOString() },
   { id: 'bms3', title: 'Non-Conformance Report', docNumber: 'BMS-FM-020', category: 'Form', version: '1.0',
     description: 'Form for recording and closing out non-conformances.',
-    content: 'NCR No:\nDate:\nDescription:\nRoot cause:\nCorrective action:\nClosed by:',
+    blocks: ncrBlocks, content: blocksToText(ncrBlocks),
     changeNote: 'Initial release', revisions: [], updatedAt: new Date().toISOString() },
 ]
 
@@ -182,6 +210,25 @@ const SAMPLE_WORKFLOWS: Workflow[] = [
   },
 ]
 
+// ── Sample project documents: both projects start on v1.0 of the sample BMS documents ──
+const SAMPLE_PROJECT_DOCUMENTS: ProjectDocument[] = ['p1', 'p2'].flatMap((projectId) =>
+  ['bms1', 'bms2', 'bms3'].map((bmsDocumentId) => ({
+    id: `pd-${projectId}-${bmsDocumentId}`, projectId, bmsDocumentId, adoptedVersion: '1.0',
+    adoptedAt: new Date().toISOString(), adoptedBy: 'System',
+    history: [{ version: '1.0', at: new Date().toISOString(), by: 'System' }],
+  })))
+
+// ── Sample project organisation ──
+const SAMPLE_PROJECT_ORG: ProjectOrgEntry[] = [
+  { projectId: 'p1', memberId: 'u1', title: 'Operations Director',   reportsToId: null },
+  { projectId: 'p1', memberId: 'u2', title: 'Project Manager',       reportsToId: 'u1' },
+  { projectId: 'p1', memberId: 'u3', title: 'Site Manager',          reportsToId: 'u2' },
+  { projectId: 'p1', memberId: 'u4', title: 'Site Inspector (QA)',   reportsToId: 'u3' },
+  { projectId: 'p2', memberId: 'u1', title: 'Operations Director',   reportsToId: null },
+  { projectId: 'p2', memberId: 'u2', title: 'Project Manager',       reportsToId: 'u1' },
+  { projectId: 'p2', memberId: 'u5', title: 'Commissioning Engineer', reportsToId: 'u2' },
+]
+
 // ── Store ─────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>()(
   persist(
@@ -194,6 +241,8 @@ export const useAppStore = create<AppState>()(
       templates: SAMPLE_TEMPLATES,
       bmsDocuments: SAMPLE_BMS,
       workflows: SAMPLE_WORKFLOWS,
+      projectDocuments: SAMPLE_PROJECT_DOCUMENTS,
+      projectOrg: SAMPLE_PROJECT_ORG,
 
       setCurrentUser: (user) => set({ currentUser: user, currentProjectId: null }),
       setCurrentProjectId: (id) => set({ currentProjectId: id }),
@@ -228,6 +277,30 @@ export const useAppStore = create<AppState>()(
       addWorkflow: (w) => set((s) => ({ workflows: [...s.workflows, w] })),
       updateWorkflow: (w) => set((s) => ({ workflows: s.workflows.map((x) => x.id === w.id ? w : x) })),
       deleteWorkflow: (id) => set((s) => ({ workflows: s.workflows.filter((x) => x.id !== id) })),
+
+      setProjectOrgEntry: (projectId, memberId, patch) => set((s) => {
+        const existing = s.projectOrg.find((e) => e.projectId === projectId && e.memberId === memberId)
+        if (existing) return { projectOrg: s.projectOrg.map((e) => e === existing ? { ...e, ...patch } : e) }
+        return { projectOrg: [...s.projectOrg, { projectId, memberId, title: '', reportsToId: null, ...patch }] }
+      }),
+
+      saveProjectDocumentFields: (projectId, bmsDocumentId, values, by) => set((s) => ({
+        projectDocuments: s.projectDocuments.map((d) => d.projectId === projectId && d.bmsDocumentId === bmsDocumentId
+          ? { ...d, fieldValues: values, fieldsUpdatedAt: new Date().toISOString(), fieldsUpdatedBy: by } : d),
+      })),
+
+      adoptProjectDocument: (projectId, bmsDocumentId, version, by) => set((s) => {
+        const now = new Date().toISOString()
+        const existing = s.projectDocuments.find((d) => d.projectId === projectId && d.bmsDocumentId === bmsDocumentId)
+        if (existing) {
+          return { projectDocuments: s.projectDocuments.map((d) => d === existing
+            ? { ...d, adoptedVersion: version, adoptedAt: now, adoptedBy: by, history: [...d.history, { version, at: now, by }] } : d) }
+        }
+        return { projectDocuments: [...s.projectDocuments, {
+          id: `pd-${projectId}-${bmsDocumentId}`, projectId, bmsDocumentId, adoptedVersion: version,
+          adoptedAt: now, adoptedBy: by, history: [{ version, at: now, by }],
+        }] }
+      }),
     }),
     { name: 'itp-store' }
   )

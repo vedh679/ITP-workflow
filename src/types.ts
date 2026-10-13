@@ -82,6 +82,21 @@ export interface Task {
   workflowRun?: WorkflowRun  // progress through that workflow
 }
 
+// A block in a structured (Word-style) BMS document.
+// heading / paragraph text is fixed — project teams cannot change it.
+// field blocks are spaces the project team fills in with project-specific information.
+export type DocBlockType = 'heading' | 'paragraph' | 'field'
+
+export interface DocBlock {
+  id: string
+  type: DocBlockType
+  text?: string                       // heading / paragraph text
+  level?: 1 | 2 | 3                   // heading level
+  label?: string                      // field: what the project team should enter
+  hint?: string                       // field: guidance shown to the project team
+  fieldType?: 'text' | 'long' | 'date'   // field: single line, multi-line or date
+}
+
 export type BmsCategory = 'Policy' | 'Procedure' | 'Form' | 'Template' | 'Register' | 'Manual' | 'Checklist Template'
 
 export interface BmsDocument {
@@ -95,6 +110,7 @@ export interface BmsDocument {
   file?: ChecklistAttachment   // optional uploaded template file
   author?: string
   approvedBy?: string
+  blocks?: DocBlock[]           // structured document body (core documents); `content` is derived from it
   requiresSignature?: boolean   // checklist templates only
   changeNote?: string     // what changed from the previous version
   revisions?: BmsRevision[]    // archived older versions, oldest first
@@ -111,6 +127,7 @@ export interface BmsRevision {
   file?: ChecklistAttachment
   author?: string
   approvedBy?: string
+  blocks?: DocBlock[]
   requiresSignature?: boolean
   changeNote: string
   createdAt: string       // when this version was created
@@ -176,4 +193,32 @@ export interface WorkflowRun {
   usedChecklistIds: string[]       // checklists already consumed by completed steps
   clientSentAt?: string            // client approval steps: when it was sent
   log: WorkflowLogEntry[]
+}
+
+// ── Project documents (which BMS version each project holds) ──────
+export interface ProjectDocumentHistory {
+  version: string
+  at: string
+  by: string
+}
+
+export interface ProjectDocument {
+  id: string
+  projectId: string
+  bmsDocumentId: string
+  adoptedVersion: string         // the BMS version this project is currently working to
+  adoptedAt: string
+  adoptedBy: string
+  history: ProjectDocumentHistory[]
+  fieldValues?: Record<string, string>   // what the project team entered, by field block id
+  fieldsUpdatedAt?: string
+  fieldsUpdatedBy?: string
+}
+
+// ── Project organisation (who is on a project and where they sit in the team) ──
+export interface ProjectOrgEntry {
+  projectId: string
+  memberId: string
+  title: string                    // e.g. "Site Manager"
+  reportsToId: string | null       // another member of the same project, or null for the top of the chart
 }

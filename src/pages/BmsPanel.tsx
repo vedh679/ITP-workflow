@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { useAppStore } from '../store'
 import type { BmsDocument, BmsCategory, BmsRevision, ChecklistTemplate } from '../types'
+import { CORE_CATEGORIES } from '../projectDocs'
+import { blocksToText, contentToBlocks, newBlockId } from '../docBlocks'
+import DocumentEditor from '../components/DocumentEditor'
+import DocumentView from '../components/DocumentView'
 
 // ─────────────────────────────────────────────────────────────────
 // BMS (Business Management System) — core document templates with
 // version control. Saving an edit archives the previous version and
 // records what changed.
 // ─────────────────────────────────────────────────────────────────
-const BMS_CATEGORIES: BmsCategory[] = ['Policy', 'Procedure', 'Form', 'Template', 'Register', 'Manual']
+const BMS_CATEGORIES: BmsCategory[] = CORE_CATEGORIES.map((c) => c.key)
 const CHECKLIST: BmsCategory = 'Checklist Template'
 
 function newBmsDoc(category: BmsCategory): BmsDocument {
-  return { id: `${category === CHECKLIST ? 'tmpl' : 'bms'}-${Date.now()}`, title: '', docNumber: '', category, description: '', version: '1.0', content: '', updatedAt: new Date().toISOString() }
+  return { id: `${category === CHECKLIST ? 'tmpl' : 'bms'}-${Date.now()}`, title: '', docNumber: '', category, description: '', version: '1.0', content: '', updatedAt: new Date().toISOString(),
+    blocks: category === CHECKLIST ? undefined : [{ id: newBlockId(), type: 'heading', level: 2, text: '' }] }
 }
 
 function bumpVersion(v: string): string {
@@ -63,7 +68,7 @@ type Snapshot = Omit<BmsRevision, 'archivedAt'>
 
 function snapshotOf(d: BmsDocument): Snapshot {
   return { version: d.version, title: d.title, docNumber: d.docNumber, category: d.category, description: d.description,
-    content: d.content, file: d.file, author: d.author, approvedBy: d.approvedBy, requiresSignature: d.requiresSignature, changeNote: d.changeNote ?? '', createdAt: d.updatedAt }
+    content: d.content, blocks: d.blocks, file: d.file, author: d.author, approvedBy: d.approvedBy, requiresSignature: d.requiresSignature, changeNote: d.changeNote ?? '', createdAt: d.updatedAt }
 }
 
 function metaChanges(prev: Snapshot, cur: Snapshot): string[] {
@@ -180,7 +185,9 @@ function VersionHistory({ doc }: { doc: BmsDocument }) {
               <div className="mt-3 space-y-2">
                 {snap.category === CHECKLIST
                   ? <ChecklistView content={snap.content} signature={snap.requiresSignature} />
-                  : <pre className="whitespace-pre-wrap text-xs font-mono bg-slate-950 border border-slate-800 rounded-lg p-3 text-slate-200">{snap.content || 'No template content.'}</pre>}
+                  : snap.blocks
+                    ? <DocumentView compact title={snap.title} blocks={snap.blocks} meta={`${snap.docNumber} · v${snap.version}`} />
+                    : <pre className="whitespace-pre-wrap text-xs font-mono bg-slate-950 border border-slate-800 rounded-lg p-3 text-slate-200">{snap.content || 'No template content.'}</pre>}
                 {snap.file && <a href={snap.file.dataUrl} download={snap.file.name} className="text-xs text-purple-300 underline">Download {snap.file.name}</a>}
               </div>
             )}
@@ -226,17 +233,20 @@ export default function BmsPanel() {
     (!isExisting || (!!draft.changeNote?.trim() && !versionClash))
 
   const startNew = () => { setDraft(newBmsDoc(isChecklist ? CHECKLIST : 'Template')); setSelectedId(null) }
-  const startEdit = () => { if (!selected) return; setSelectedId(selected.id); setDraft({ ...selected, version: bumpVersion(selected.version), changeNote: '' }) }
+  const startEdit = () => { if (!selected) return; setSelectedId(selected.id); setDraft({ ...selected, version: bumpVersion(selected.version), changeNote: '',
+    blocks: selected.category === CHECKLIST ? undefined : (selected.blocks ?? contentToBlocks(selected.content)) }) }
   const save = () => {
     if (!draft || !canSave) return
     const now = new Date().toISOString()
     const prev = docs.find((d) => d.id === draft.id)
+    // structured documents: keep the plain-text form in step with the blocks (used for search and version diffs)
+    const body = draft.blocks && !isChecklist ? { ...draft, content: blocksToText(draft.blocks) } : draft
     if (prev) {
       // Archive the version being replaced
       const archived: BmsRevision = { ...snapshotOf(prev), archivedAt: now }
-      updateDoc({ ...draft, changeNote: draft.changeNote!.trim(), revisions: [...(prev.revisions ?? []), archived], updatedAt: now })
+      updateDoc({ ...body, changeNote: draft.changeNote!.trim(), revisions: [...(prev.revisions ?? []), archived], updatedAt: now })
     } else {
-      addDoc({ ...draft, changeNote: 'Initial release', revisions: [], updatedAt: now })
+      addDoc({ ...body, changeNote: 'Initial release', revisions: [], updatedAt: now })
     }
     setSelectedId(draft.id)
     setDraft(null)
@@ -295,7 +305,7 @@ export default function BmsPanel() {
       {/* Detail / editor */}
       <main className="flex-1 overflow-y-auto p-6">
         {draft ? (
-          <div className="max-w-2xl space-y-4">
+          <div className={`${isChecklist ? 'max-w-2xl' : 'max-w-4xl'} space-y-4`}>
             <h2 className="text-ink font-bold text-lg">{isExisting ? `Edit — new version (current is v${selected?.version})` : isChecklist ? 'New checklist' : 'New document'}</h2>
             <div><label className={label}>Title</label><input className={input} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></div>
             <div className={`grid ${isChecklist ? 'grid-cols-2' : 'grid-cols-3'} gap-3`}>
@@ -315,8 +325,8 @@ export default function BmsPanel() {
               <div><label className={label}>Checklist items</label>
                 <ChecklistEditor content={draft.content} onChange={(c) => setDraft({ ...draft, content: c })} /></div>
             ) : (
-              <div><label className={label}>Template content</label>
-                <textarea className={`${input} font-mono h-64`} value={draft.content} onChange={(e) => setDraft({ ...draft, content: e.target.value })} /></div>
+              <div><label className={label}>Document</label>
+                <DocumentEditor blocks={draft.blocks ?? []} onChange={(blocks) => setDraft({ ...draft, blocks })} /></div>
             )}
             {isChecklist && (
               <label className="flex items-center gap-2 text-sm text-slate-300">
@@ -343,7 +353,7 @@ export default function BmsPanel() {
             </div>
           </div>
         ) : selected ? (
-          <div className="max-w-2xl space-y-4">
+          <div className={`${selected.blocks ? 'max-w-4xl' : 'max-w-2xl'} space-y-4`}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-ink font-bold text-xl">{selected.title}</h2>
@@ -361,7 +371,10 @@ export default function BmsPanel() {
             </div>
             {selected.category === CHECKLIST
               ? <ChecklistView content={selected.content} signature={selected.requiresSignature} />
-              : <pre className="whitespace-pre-wrap bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 font-mono">{selected.content || 'No template content.'}</pre>}
+              : selected.blocks
+                ? <DocumentView title={selected.title} blocks={selected.blocks}
+                    meta={[selected.docNumber, `v${selected.version}`, selected.category, selected.author && `Author: ${selected.author}`, selected.approvedBy && `Approved by: ${selected.approvedBy}`].filter(Boolean).join(' · ')} />
+                : <pre className="whitespace-pre-wrap bg-slate-900 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 font-mono">{selected.content || 'No template content.'}</pre>}
             {selected.file && (
               <a href={selected.file.dataUrl} download={selected.file.name} className="inline-block text-sm text-purple-300 hover:text-purple-200 underline">Download {selected.file.name}</a>
             )}

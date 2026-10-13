@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
+import { pendingDocs } from '../projectDocs'
 import { isChecklistComplete, isManager } from '../workflow'
 
 function greeting() {
@@ -29,7 +30,7 @@ const icon = (d: string) => (
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { currentUser, currentProjectId, projects, tasks } = useAppStore()
+  const { currentUser, currentProjectId, projects, tasks, bmsDocuments, projectDocuments } = useAppStore()
 
   if (!currentUser) {
     navigate('/')
@@ -48,6 +49,11 @@ export default function HomePage() {
   const doneChecklists = allChecklists.filter(isChecklistComplete)
   const overdue = active.filter((t) => t.dueDate && t.dueDate < today)
 
+  // BMS core documents the project is behind on (the manager is prompted to update them)
+  const behind = isAdmin
+    ? projects.flatMap((p) => pendingDocs(p.id, bmsDocuments, projectDocuments).map((x) => ({ ...x, project: p.name })))
+    : pendingDocs(currentProjectId ?? '', bmsDocuments, projectDocuments).map((x) => ({ ...x, project: '' }))
+
   return (
     <div className="h-full overflow-y-auto">
       <AppHeader active="overview" />
@@ -58,6 +64,25 @@ export default function HomePage() {
           {greeting()}, {currentUser.name.split(' ')[0]} 👋
           {activeProject && !isAdmin && <span className="text-slate-500"> · {activeProject.name}</span>}
         </p>
+
+        {/* BMS update prompt */}
+        {behind.length > 0 && (
+          <div className="mt-8 px-5 py-4 rounded-3xl bg-amber-50 border border-amber-100 flex items-center gap-4 flex-wrap">
+            <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">!</div>
+            <div className="flex-1 min-w-[220px]">
+              <p className="text-sm font-semibold text-amber-700">
+                {isManager(currentUser) ? 'BMS documents need your attention' : 'BMS documents are out of date'}
+              </p>
+              <p className="text-xs text-amber-700/80">
+                {behind.length} core document{behind.length === 1 ? '' : 's'} {behind.length === 1 ? 'has' : 'have'} a new version in the BMS:{' '}
+                {behind.slice(0, 3).map((b) => b.project ? `${b.doc.title} (${b.project})` : b.doc.title).join(', ')}{behind.length > 3 ? '…' : ''}
+              </p>
+            </div>
+            <button onClick={() => navigate('/documents')} className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">
+              {isManager(currentUser) ? 'Review & update' : 'View documents'}
+            </button>
+          </div>
+        )}
 
         {/* KPI row */}
         <div className="grid gap-5 mt-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -83,6 +108,33 @@ export default function HomePage() {
             <div className="flex-1">
               <h3 className="text-xl font-bold text-ink">Tasks</h3>
               <p className="text-slate-400 text-sm mt-0.5">{currentUser.role === 'engineer' ? 'View tasks & complete checklists' : 'View & manage inspection tasks'}</p>
+            </div>
+            <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
+          </button>
+
+          <button onClick={() => navigate('/documents')}
+            className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
+            <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M12 6.25v13m0-13C10.8 5.48 9.2 5 7.5 5S4.2 5.48 3 6.25v13C4.2 18.48 5.8 18 7.5 18s3.3.48 4.5 1.25m0-13C13.2 5.48 14.8 5 16.5 5c1.7 0 3.3.48 4.5 1.25v13C19.8 18.48 18.2 18 16.5 18c-1.7 0-3.3.48-4.5 1.25" /></svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-ink flex items-center gap-2 flex-wrap">
+                BMS Core Documents
+                {behind.length > 0 && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-coral text-white whitespace-nowrap">{behind.length} to update</span>}
+              </h3>
+              <p className="text-slate-400 text-sm mt-0.5">Procedures, policies & forms this project works to</p>
+            </div>
+            <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
+          </button>
+
+          <button onClick={() => navigate('/organisation')}
+            className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
+            <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M12 4v4m0 0a2 2 0 100 4 2 2 0 000-4zm-7 12v-3a2 2 0 012-2h10a2 2 0 012 2v3M5 20a2 2 0 100-4 2 2 0 000 4zm14 0a2 2 0 100-4 2 2 0 000 4z" /></svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-ink">Project Organisation</h3>
+              <p className="text-slate-400 text-sm mt-0.5">The project team and who reports to whom</p>
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
