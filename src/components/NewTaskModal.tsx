@@ -12,12 +12,14 @@ interface Props {
 }
 
 export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
-  const { members, currentProjectId } = useAppStore()
+  const { members, currentProjectId, workflows } = useAppStore()
   const [name, setName] = useState(initialValues?.name ?? '')
   const [description, setDescription] = useState(initialValues?.description ?? '')
   const [location, setLocation] = useState(initialValues?.location ?? '')
   const [dueDate, setDueDate] = useState(initialValues?.dueDate ?? '')
   const [assignedTo, setAssignedTo] = useState(initialValues?.assignedTo ?? '')
+  // New tasks pick up the first workflow by default so the ITP process applies automatically
+  const [workflowId, setWorkflowId] = useState(workflows[0]?.id ?? '')
 
   const isEdit = !!initialValues
 
@@ -31,16 +33,16 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
-    onAdd({ name: name.trim(), description, location, dueDate, assignedTo })
+    onAdd({ name: name.trim(), description, location, dueDate, assignedTo, ...(!isEdit && workflowId ? { workflowId } : {}) })
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white">{isEdit ? 'Edit Task' : 'New Task'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+          <h2 className="text-lg font-bold text-ink">{isEdit ? 'Edit Task' : 'New Task'}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-ink transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -118,6 +120,18 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
               </div>
             </div>
 
+            {/* Workflow — applied automatically to new tasks */}
+            {!isEdit && workflows.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Workflow</label>
+                <select value={workflowId} onChange={(e) => setWorkflowId(e.target.value)}
+                  className="w-full bg-slate-800 text-slate-100 rounded-xl px-3 py-2.5 border border-slate-700 focus:outline-none focus:border-blue-500 text-sm">
+                  {workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  <option value="">No workflow</option>
+                </select>
+              </div>
+            )}
+
             {/* Assign to */}
             <MemberPicker
               members={visibleMembers}
@@ -142,7 +156,7 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
             <button
               type="submit"
               disabled={!canSubmit}
-              className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+              className="flex-1 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
             >
               {isEdit ? 'Save Changes' : 'Create Task'}
             </button>

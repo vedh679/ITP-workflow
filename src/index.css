@@ -3,12 +3,34 @@
 @tailwind utilities;
 
 @layer base {
+  html, body, #root { height: 100%; }
   body {
-    @apply bg-gray-50 text-gray-900 font-sans;
+    @apply bg-white text-ink font-sans antialiased;
   }
+  /* native date pickers etc. follow the light theme */
+  input, select, textarea { color-scheme: light; }
 }
 
 /* ReactFlow custom styles */
 .react-flow__node-taskNode {
   border-radius: 8px;
 }
+.react-flow__controls { box-shadow: 0 4px 16px -6px rgba(0,0,0,0.18); border-radius: 12px; overflow: hidden; }
+.react-flow__controls-button { background: #fff; border-bottom: 1px solid #eee; color: #404040; }
+.react-flow__controls-button:hover { background: #f1f1f1; }
+.react-flow__controls-button svg { fill: currentColor; }
+
+/* Organisation chart: nested lists with connector lines */
+.org-tree ul { padding-top: 22px; position: relative; display: flex; justify-content: center; margin: 0; }
+.org-tree li { list-style: none; display: flex; flex-direction: column; align-items: center; position: relative; padding: 22px 10px 0; }
+.org-tree li::before, .org-tree li::after { content: ''; position: absolute; top: 0; right: 50%; width: 50%; height: 22px; border-top: 2px solid #D4D4D4; }
+.org-tree li::after { right: auto; left: 50%; border-left: 2px solid #D4D4D4; }
+.org-tree li:only-child::before, .org-tree li:only-child::after { display: none; }
+.org-tree li:only-child { padding-top: 0; }
+.org-tree li:first-child::before, .org-tree li:last-child::after { border: 0 none; }
+.org-tree li:last-child::before { border-right: 2px solid #D4D4D4; border-radius: 0 14px 0 0; }
+.org-tree li:first-child::after { border-radius: 14px 0 0 0; }
+.org-tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; height: 22px; border-left: 2px solid #D4D4D4; }
+.org-tree > ul { padding-top: 0; }
+.org-tree > ul > li { padding-top: 0; }
+.org-tree > ul > li::before, .org-tree > ul > li::after { display: none; }
