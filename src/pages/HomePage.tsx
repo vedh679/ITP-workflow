@@ -127,6 +127,18 @@ export default function HomePage() {
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
 
+          <button onClick={() => navigate('/timesheet')}
+            className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
+            <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-ink">My Timesheet</h3>
+              <p className="text-slate-400 text-sm mt-0.5">Log your work times for the week</p>
+            </div>
+            <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
+          </button>
+
           <button onClick={() => navigate('/organisation')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
             <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">

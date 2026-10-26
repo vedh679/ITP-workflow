@@ -80,6 +80,23 @@ export default function ProjectSelectPage() {
               </button>
             ))}
 
+            {/* Personal pages that don't belong to a single project */}
+            <button
+              onClick={() => navigate('/timesheet')}
+              className="w-full group bg-white hover:bg-slate-900 border border-dashed border-slate-600 hover:border-slate-500 rounded-3xl p-5 text-left transition-all duration-200 flex items-center gap-5"
+            >
+              <div className="w-12 h-12 rounded-full bg-coral text-white flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-ink font-semibold text-lg leading-tight">My Timesheet</div>
+                <div className="text-slate-400 text-sm mt-0.5 truncate">Log your work times across all projects</div>
+              </div>
+              <svg className="w-5 h-5 text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
             {assignedProjects.length === 0 && (
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center">
                 <p className="text-slate-400">You have no projects assigned. Contact your admin.</p>

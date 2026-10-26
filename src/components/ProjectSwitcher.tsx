@@ -36,7 +36,7 @@ export default function ProjectSwitcher({ variant = 'dark' }: Props) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
             d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
         </svg>
-        <span className="max-w-[140px] truncate">{current?.name ?? 'Select project'}</span>
+        <span className="max-w-[90px] xl:max-w-[140px] truncate">{current?.name ?? 'Select project'}</span>
         <svg className={`w-3.5 h-3.5 flex-shrink-0 transition-transform text-slate-400 ${open ? 'rotate-180' : ''}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

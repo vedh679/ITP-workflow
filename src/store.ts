@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { startRun, syncRun } from './workflow'
 import { blocksToText, field, heading, para } from './docBlocks'
-import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow, ProjectDocument, ProjectOrgEntry } from './types'
+import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow, ProjectDocument, ProjectOrgEntry, TimesheetEntry, TimesheetSubmission } from './types'
 
 interface AppState {
   currentUser: AppUser | null
@@ -15,6 +15,8 @@ interface AppState {
   workflows: Workflow[]
   projectDocuments: ProjectDocument[]
   projectOrg: ProjectOrgEntry[]
+  timesheetEntries: TimesheetEntry[]
+  timesheetSubmissions: TimesheetSubmission[]
 
   setCurrentUser: (user: AppUser | null) => void
   setCurrentProjectId: (id: string | null) => void
@@ -51,6 +53,13 @@ interface AppState {
 
   // Project documents: a project takes up (or updates to) a version of a BMS document
   adoptProjectDocument: (projectId: string, bmsDocumentId: string, version: string, by: string) => void
+  // Timesheets
+  addTimesheetEntry: (entry: TimesheetEntry) => void
+  updateTimesheetEntry: (entry: TimesheetEntry) => void
+  deleteTimesheetEntry: (id: string) => void
+  submitTimesheetWeek: (userId: string, weekStart: string) => void
+  reopenTimesheetWeek: (userId: string, weekStart: string) => void
+
   setProjectOrgEntry: (projectId: string, memberId: string, patch: Partial<Pick<ProjectOrgEntry, 'title' | 'reportsToId'>>) => void
   saveProjectDocumentFields: (projectId: string, bmsDocumentId: string, values: Record<string, string>, by: string) => void
 }
@@ -63,11 +72,11 @@ const SAMPLE_PROJECTS: Project[] = [
 
 // ── Sample members ────────────────────────────────────────────────
 const SAMPLE_MEMBERS: AppUser[] = [
-  { id: 'u1', email: 'admin@itp.com',     name: 'Admin User',      role: 'admin',    projectIds: ['p1', 'p2'] },
-  { id: 'u2', email: 'manager@itp.com',   name: 'Project Manager', role: 'manager',  projectIds: ['p1', 'p2'] },
-  { id: 'u3', email: 'vedh@itp.com',      name: 'Vedh',            role: 'manager',  projectIds: ['p1'] },
-  { id: 'u4', email: 'inspector@itp.com', name: 'Site Inspector',  role: 'engineer', projectIds: ['p1'] },
-  { id: 'u5', email: 'engineer@itp.com',  name: 'Field Engineer',  role: 'engineer', projectIds: ['p2'] },
+  { id: 'u1', email: 'admin@itp.com',     name: 'Admin User',      role: 'admin',    team: 'Executive',    projectIds: ['p1', 'p2'] },
+  { id: 'u2', email: 'manager@itp.com',   name: 'Project Manager', role: 'manager',  team: 'Manager',  projectIds: ['p1', 'p2'] },
+  { id: 'u3', email: 'vedh@itp.com',      name: 'Vedh',            role: 'manager',  team: 'Manager',  projectIds: ['p1'] },
+  { id: 'u4', email: 'inspector@itp.com', name: 'Site Inspector',  role: 'engineer', team: 'Quality', projectIds: ['p1'] },
+  { id: 'u5', email: 'engineer@itp.com',  name: 'Field Engineer',  role: 'engineer', team: 'Site Engineer', projectIds: ['p2'] },
 ]
 
 // ── Sample templates ──────────────────────────────────────────────
@@ -243,6 +252,8 @@ export const useAppStore = create<AppState>()(
       workflows: SAMPLE_WORKFLOWS,
       projectDocuments: SAMPLE_PROJECT_DOCUMENTS,
       projectOrg: SAMPLE_PROJECT_ORG,
+      timesheetEntries: [],
+      timesheetSubmissions: [],
 
       setCurrentUser: (user) => set({ currentUser: user, currentProjectId: null }),
       setCurrentProjectId: (id) => set({ currentProjectId: id }),
@@ -277,6 +288,17 @@ export const useAppStore = create<AppState>()(
       addWorkflow: (w) => set((s) => ({ workflows: [...s.workflows, w] })),
       updateWorkflow: (w) => set((s) => ({ workflows: s.workflows.map((x) => x.id === w.id ? w : x) })),
       deleteWorkflow: (id) => set((s) => ({ workflows: s.workflows.filter((x) => x.id !== id) })),
+
+      addTimesheetEntry: (e) => set((s) => ({ timesheetEntries: [...s.timesheetEntries, e] })),
+      updateTimesheetEntry: (e) => set((s) => ({ timesheetEntries: s.timesheetEntries.map((x) => x.id === e.id ? e : x) })),
+      deleteTimesheetEntry: (id) => set((s) => ({ timesheetEntries: s.timesheetEntries.filter((x) => x.id !== id) })),
+      submitTimesheetWeek: (userId, weekStart) => set((s) => ({
+        timesheetSubmissions: [...s.timesheetSubmissions.filter((x) => !(x.userId === userId && x.weekStart === weekStart)),
+          { userId, weekStart, submittedAt: new Date().toISOString() }],
+      })),
+      reopenTimesheetWeek: (userId, weekStart) => set((s) => ({
+        timesheetSubmissions: s.timesheetSubmissions.filter((x) => !(x.userId === userId && x.weekStart === weekStart)),
+      })),
 
       setProjectOrgEntry: (projectId, memberId, patch) => set((s) => {
         const existing = s.projectOrg.find((e) => e.projectId === projectId && e.memberId === memberId)

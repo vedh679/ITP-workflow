@@ -4,6 +4,7 @@ import { useAppStore } from '../store'
 import BmsPanel from './BmsPanel'
 import WorkflowPanel from './WorkflowPanel'
 import type { AppUser, Project } from '../types'
+import { TEAM_OPTIONS } from '../teams'
 
 // ─────────────────────────────────────────────────────────────────
 // Helpers
@@ -40,7 +41,7 @@ function MembersPanel() {
   const cancel    = () => { setEditing(null); setIsNew(false) }
 
   const save = () => {
-    if (!editing || !editing.name.trim() || !editing.email.trim()) return
+    if (!editing || !editing.name.trim() || !editing.email.trim() || !editing.team) return
     if (isNew) { addMember(editing); setSelectedId(editing.id) }
     else        { updateMember(editing); setSelectedId(editing.id) }
     setEditing(null); setIsNew(false)
@@ -72,7 +73,7 @@ function MembersPanel() {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-slate-200 truncate">{m.name}</div>
-                  <div className="text-xs text-slate-500 truncate">{m.role}</div>
+                  <div className="text-xs text-slate-500 truncate">{m.role} · {m.team ?? 'No team'}</div>
                 </div>
               </div>
             </button>
@@ -95,7 +96,7 @@ function MembersPanel() {
               <h3 className="text-lg font-bold text-ink">{isNew ? 'Add Member' : 'Edit Member'}</h3>
               <div className="flex gap-2">
                 <button onClick={cancel} className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm transition-colors">Cancel</button>
-                <button onClick={save}   className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors">Save</button>
+                <button onClick={save} disabled={!editing.name.trim() || !editing.email.trim() || !editing.team} className="px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold transition-colors">Save</button>
               </div>
             </div>
             <div className="space-y-4">
@@ -132,6 +133,20 @@ function MembersPanel() {
                    editing.role === 'manager' ? 'Can create and manage tasks and checklists. No admin settings.' :
                    'Can view tasks and complete checklists only.'}
                 </p>
+              </div>
+
+              {/* Team */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Team *</label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {TEAM_OPTIONS.map((team) => (
+                    <button key={team} type="button" onClick={() => setEditing({ ...editing, team })}
+                      className={`py-2 rounded-full border text-sm font-medium transition-all ${editing.team === team ? 'bg-ink border-ink text-white' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                      {team}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 mt-1.5">{editing.team ? `Classified as part of the ${editing.team} team.` : 'Choose the team this member is part of.'}</p>
               </div>
 
               {/* Project assignment */}
@@ -190,6 +205,14 @@ function MembersPanel() {
                  selected.role === 'manager' ? 'Can create and manage tasks and checklists. No admin settings.' :
                  'Can view tasks and complete checklists only.'}
               </p>
+            </div>
+
+            {/* Team */}
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-3">
+              <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2">Team</p>
+              {selected.team
+                ? <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-ink text-white">{selected.team}</span>
+                : <p className="text-sm text-amber-700">Not classified yet — edit this member to choose a team.</p>}
             </div>
 
             {/* Assigned projects */}

@@ -17,7 +17,7 @@ import {
   getStraightPath,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import type { Task } from '../types'
+import type { Task, Inspection, InspectionType } from '../types'
 
 // ── Node data types ───────────────────────────────────────────────
 interface TaskNodeData extends Record<string, unknown> {
@@ -36,6 +36,16 @@ interface ChecklistNodeData extends Record<string, unknown> {
 interface AddNodeData extends Record<string, unknown> {
   taskId: string
   onAdd: (taskId: string) => void
+  label?: string
+}
+interface InspectionNodeData extends Record<string, unknown> {
+  inspection: Inspection
+  inspectorName: string
+  onOpen: (inspectionId: string) => void
+}
+
+export const INSPECTION_COLOR: Record<InspectionType, string> = {
+  'QICC': '#E2634B', 'NOWRI': '#0B0B0B', 'Joint Inspection': '#D97706', 'Quality Inspection': '#6B6B6B',
 }
 
 // ── Task root node ────────────────────────────────────────────────
@@ -74,6 +84,8 @@ function TaskNode({ data }: NodeProps) {
         {d.status}
       </div>
       <Handle type="source" position={Position.Right} id="right"
+        style={{ background: 'transparent', border: 'none', width: 1, height: 1 }} />
+      <Handle type="source" position={Position.Left} id="left"
         style={{ background: 'transparent', border: 'none', width: 1, height: 1 }} />
     </div>
   )
@@ -173,6 +185,66 @@ function AddChecklistNode({ data }: NodeProps) {
   )
 }
 
+// ── Inspection node (left-hand branch) ───────────────────────────
+function InspectionNode({ data }: NodeProps) {
+  const d = data as InspectionNodeData
+  const i = d.inspection
+  const color = INSPECTION_COLOR[i.type]
+  const open = i.issues.filter((x) => x.status !== 'closed').length
+  const done = i.status === 'completed'
+
+  return (
+    <div
+      onClick={() => d.onOpen(i.id)}
+      style={{
+        background: '#FFFFFF', border: `1.5px solid ${done ? '#16A34A' : '#E4E4E4'}`, borderRadius: 12,
+        padding: '12px 16px', width: 240, boxShadow: '0 4px 16px -6px rgba(0,0,0,0.15)', color: '#262626',
+        cursor: 'pointer', transition: 'border-color 0.2s, box-shadow 0.2s', userSelect: 'none',
+      }}
+      onMouseEnter={(e) => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = color; el.style.boxShadow = '0 4px 24px rgba(0,0,0,0.18)' }}
+      onMouseLeave={(e) => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = done ? '#16A34A' : '#E4E4E4'; el.style.boxShadow = '0 4px 16px -6px rgba(0,0,0,0.15)' }}
+    >
+      <Handle type="target" position={Position.Right}
+        style={{ background: 'transparent', border: 'none', width: 1, height: 1 }} />
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: '#fff', background: color, borderRadius: 20, padding: '2px 9px' }}>{i.type}</span>
+        {done && <span style={{ fontSize: 10, fontWeight: 700, color: '#16A34A' }}>✓ Completed</span>}
+      </div>
+      <div style={{ fontWeight: 700, fontSize: 13, color: '#0B0B0B', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.title}</div>
+      <div style={{ fontSize: 10, color: '#8F8F8F', marginBottom: 8 }}>
+        {new Date(i.date + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}{d.inspectorName ? ` · ${d.inspectorName}` : ''}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 10, fontWeight: 600, color: open > 0 ? '#E5484D' : '#8F8F8F' }}>
+          {i.issues.length === 0 ? 'No issues' : `${open} open · ${i.issues.length} issue${i.issues.length === 1 ? '' : 's'}`}
+        </span>
+        <span style={{ fontSize: 10, fontWeight: 600, color }}>Open ›</span>
+      </div>
+    </div>
+  )
+}
+
+function AddInspectionNode({ data }: NodeProps) {
+  const d = data as AddNodeData
+  return (
+    <div
+      onClick={() => d.onAdd(d.taskId)}
+      style={{
+        background: 'transparent', border: '2px dashed #E4E4E4', borderRadius: 12, padding: '10px 20px', width: 240,
+        cursor: 'pointer', color: '#8F8F8F', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', gap: 8, transition: 'border-color 0.2s, color 0.2s', userSelect: 'none',
+      }}
+      onMouseEnter={(e) => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = '#E2634B'; el.style.color = '#E2634B' }}
+      onMouseLeave={(e) => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = '#E4E4E4'; el.style.color = '#8F8F8F' }}
+    >
+      <Handle type="target" position={Position.Right}
+        style={{ background: 'transparent', border: 'none', width: 1, height: 1 }} />
+      <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Add Inspection
+    </div>
+  )
+}
+
 // ── Custom tree edge — orthogonal, shared trunk ───────────────────
 // Draws: horizontal from source → down/up to target row → horizontal to target
 interface TreeEdgeData extends Record<string, unknown> {
@@ -209,6 +281,8 @@ const nodeTypes = {
   taskNode: TaskNode,
   checklistNode: ChecklistNode,
   addNode: AddChecklistNode,
+  inspectionNode: InspectionNode,
+  addInspectionNode: AddInspectionNode,
 }
 
 const edgeTypes = {
@@ -221,22 +295,32 @@ interface Props {
   task: Task
   onAddChecklist: (taskId: string) => void
   onOpenChecklist: (checklistId: string) => void
+  onAddInspection: (taskId: string) => void
+  onOpenInspection: (inspectionId: string) => void
+  inspectorNames: Record<string, string>   // member email → name
   onEditTask: (task: Task) => void
   canEdit?: boolean
 }
 
-export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onEditTask, canEdit = true }: Props) {
+export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onAddInspection, onOpenInspection, inspectorNames, onEditTask, canEdit = true }: Props) {
   const { initialNodes, initialEdges } = useMemo(() => {
-    const SPACING_Y = 110
-    const ROOT_X = 60
-    const TRUNK_X = 340   // where the vertical spine sits
-    const CHECKLIST_X = 380
+    const SPACING_Y = 120
+    const ROOT_X = 480          // leaves room for the inspections branch on the left
+    const TRUNK_X = ROOT_X + 280    // right-hand spine (checklists)
+    const CHECKLIST_X = ROOT_X + 320
+    const TRUNK_LEFT_X = ROOT_X - 40   // left-hand spine (inspections)
+    const INSPECTION_X = ROOT_X - 320  // 240px wide nodes end 80px left of the root
     const NODE_HEIGHT = 80 // approximate height of checklist node
     const NODE_CENTER = NODE_HEIGHT / 2
 
     const checklists = task.checklists
-    const branchCount = checklists.length + 1
-    const totalHeight = branchCount * SPACING_Y
+    const inspections = task.inspections ?? []
+    const rightBranches = checklists.length + 1
+    const leftBranches = inspections.length + 1
+    const totalHeight = Math.max(rightBranches, leftBranches) * SPACING_Y
+    // both branches are centred on the task node
+    const rightStart = (totalHeight - rightBranches * SPACING_Y) / 2
+    const leftStart = (totalHeight - leftBranches * SPACING_Y) / 2
 
     // Root centered vertically against all branches
     const rootCenterY = totalHeight / 2
@@ -263,7 +347,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onE
     checklists.forEach((cl, idx) => {
       const nodeId = `cl-${cl.id}`
       const completed = cl.items.filter((i) => i.completed).length
-      const nodeY = idx * SPACING_Y
+      const nodeY = rightStart + idx * SPACING_Y
 
       nodes.push({
         id: nodeId,
@@ -293,7 +377,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onE
 
     // Add button — only visible to admins and managers
     if (canEdit) {
-      const addY = checklists.length * SPACING_Y
+      const addY = rightStart + checklists.length * SPACING_Y
       nodes.push({
         id: 'add-node',
         type: 'addNode',
@@ -311,8 +395,38 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onE
       })
     }
 
+    // Inspections branch (left)
+    inspections.forEach((insp, idx) => {
+      const nodeId = `insp-${insp.id}`
+      nodes.push({
+        id: nodeId,
+        type: 'inspectionNode',
+        position: { x: INSPECTION_X, y: leftStart + idx * SPACING_Y },
+        data: { inspection: insp, inspectorName: inspectorNames[insp.inspectedBy] ?? '', onOpen: onOpenInspection } as InspectionNodeData,
+        draggable: true,
+      })
+      edges.push({
+        id: `e-${nodeId}`, source: 'root', sourceHandle: 'left', target: nodeId, type: 'treeEdge',
+        data: { trunkX: TRUNK_LEFT_X } as TreeEdgeData,
+        style: { stroke: '#B8B8B8', strokeWidth: 1.5 },
+      })
+    })
+    if (canEdit) {
+      nodes.push({
+        id: 'add-inspection-node', type: 'addInspectionNode',
+        position: { x: INSPECTION_X, y: leftStart + inspections.length * SPACING_Y },
+        data: { taskId: task.id, onAdd: onAddInspection } as AddNodeData,
+        draggable: false,
+      })
+      edges.push({
+        id: 'e-add-inspection', source: 'root', sourceHandle: 'left', target: 'add-inspection-node', type: 'treeEdge',
+        data: { trunkX: TRUNK_LEFT_X, dashed: true } as TreeEdgeData,
+        style: { stroke: '#D4D4D4', strokeWidth: 1.5 },
+      })
+    }
+
     return { initialNodes: nodes, initialEdges: edges }
-  }, [task, onOpenChecklist, onAddChecklist, canEdit])
+  }, [task, onOpenChecklist, onAddChecklist, onAddInspection, onOpenInspection, inspectorNames, canEdit])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)

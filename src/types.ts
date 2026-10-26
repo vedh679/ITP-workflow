@@ -1,10 +1,13 @@
 export type UserRole = 'admin' | 'manager' | 'engineer'
 
+export type TeamType = 'Quality' | 'Site Engineer' | 'Engineer' | 'Manager' | 'Commercial' | 'Planning' | 'Executive' | 'Finance'
+
 export interface AppUser {
   id: string
   email: string
   name: string
   role: UserRole
+  team?: TeamType        // which team the member belongs to (separate from their access role)
   projectIds: string[]   // projects this member is assigned to
 }
 
@@ -61,6 +64,71 @@ export interface TaskChecklist {
   attachments?: ChecklistAttachment[]
 }
 
+// ── Inspections (a second branch on the task, alongside checklists) ──
+export type InspectionType = 'QICC' | 'NOWRI' | 'Joint Inspection' | 'Quality Inspection'
+export type IssueSeverity = 'minor' | 'major' | 'critical'
+export type IssueStatus = 'open' | 'in-progress' | 'closed'
+
+export interface IssueChange {
+  field: string
+  from: string
+  to: string
+}
+
+// Audit trail entry for one issue: who did what, when, and exactly what changed
+export interface IssueHistoryEntry {
+  id: string
+  at: string
+  by: string
+  action: 'created' | 'started' | 'closed' | 'reopened' | 'edited'
+  summary: string
+  changes?: IssueChange[]
+  note?: string
+  photos?: ChecklistAttachment[]   // photos added in this step (before photos on creation, after photos on closing)
+}
+
+export interface InspectionLogEntry {
+  id: string
+  at: string
+  by: string
+  summary: string
+}
+
+export interface InspectionIssue {
+  id: string
+  title: string
+  description: string
+  severity: IssueSeverity
+  status: IssueStatus
+  location?: string
+  assignedTo?: string        // member email responsible for fixing it
+  dueDate?: string
+  raisedBy: string           // member name
+  raisedAt: string
+  closedBy?: string
+  closedAt?: string
+  closeNote?: string
+  beforePhotos?: ChecklistAttachment[]   // required when the issue is raised
+  afterPhotos?: ChecklistAttachment[]    // required when the issue is closed
+  photos?: ChecklistAttachment[]         // legacy: treated as before photos
+  history?: IssueHistoryEntry[]
+}
+
+export interface Inspection {
+  id: string
+  type: InspectionType
+  title: string
+  date: string               // YYYY-MM-DD
+  inspectedBy: string        // member email
+  location: string
+  notes: string
+  status: 'open' | 'completed'
+  completedAt?: string
+  issues: InspectionIssue[]
+  log?: InspectionLogEntry[]   // inspection-level activity (created, edited, completed, issue deleted …)
+  createdAt: string
+}
+
 export interface CustomTable {
   columns: string[]   // column header labels
   rows: string[][]    // rows[r][c] = cell value
@@ -76,6 +144,7 @@ export interface Task {
   projectId: string      // which project this task belongs to
   status: 'pending' | 'in-progress' | 'completed'
   checklists: TaskChecklist[]
+  inspections?: Inspection[]
   createdAt: string
   customTable?: CustomTable
   workflowId?: string        // workflow applied to this task
@@ -221,4 +290,23 @@ export interface ProjectOrgEntry {
   memberId: string
   title: string                    // e.g. "Site Manager"
   reportsToId: string | null       // another member of the same project, or null for the top of the chart
+}
+
+// ── Timesheets ────────────────────────────────────────────────────
+export interface TimesheetEntry {
+  id: string
+  userId: string
+  projectId: string
+  taskId?: string
+  date: string          // YYYY-MM-DD
+  start: string         // HH:MM
+  end: string           // HH:MM
+  breakMins: number
+  description: string
+}
+
+export interface TimesheetSubmission {
+  userId: string
+  weekStart: string     // the Monday, YYYY-MM-DD
+  submittedAt: string
 }

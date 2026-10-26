@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
-import type { Task, ChecklistTemplate } from '../types'
+import type { Task, ChecklistTemplate, Inspection } from '../types'
 import TaskMindMap from '../components/TaskMindMap'
 import TaskTableView from '../components/TaskTableView'
 import AddChecklistModal from '../components/AddChecklistModal'
 import ChecklistDetail from '../components/ChecklistDetail'
 import NewTaskModal from '../components/NewTaskModal'
+import AddInspectionModal from '../components/AddInspectionModal'
+import InspectionDetail from '../components/InspectionDetail'
 import AppHeader from '../components/AppHeader'
 import TaskWorkflowBanner from '../components/TaskWorkflowBanner'
 
@@ -42,6 +44,8 @@ export default function TasksPage() {
   const [filterMine, setFilterMine] = useState(false)
   const [showAddChecklist, setShowAddChecklist] = useState(false)
   const [openChecklistId, setOpenChecklistId] = useState<string | null>(null)
+  const [openInspectionId, setOpenInspectionId] = useState<string | null>(null)
+  const [showAddInspection, setShowAddInspection] = useState(false)
   const [showNewTask, setShowNewTask] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [viewMode, setViewMode] = useState<'mindmap' | 'table'>('mindmap')
@@ -51,6 +55,7 @@ export default function TasksPage() {
   useEffect(() => {
     setSelectedTaskId(projectFilteredTasks[0]?.id ?? null)
     setOpenChecklistId(null)
+    setOpenInspectionId(null)
   }, [currentProjectId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!currentUser) { navigate('/'); return null }
@@ -72,6 +77,18 @@ export default function TasksPage() {
 
   const handleOpenChecklist = (checklistId: string) => {
     setOpenChecklistId(checklistId)
+  }
+
+  const handleAddInspection = (taskId: string) => {
+    setSelectedTaskId(taskId)
+    setShowAddInspection(true)
+  }
+
+  const handleInspectionSaved = (inspection: Inspection) => {
+    if (!selectedTask) return
+    updateTask({ ...selectedTask, inspections: [...(selectedTask.inspections ?? []), inspection] })
+    setShowAddInspection(false)
+    setOpenInspectionId(inspection.id)
   }
 
   const handleChecklistSelected = (template: ChecklistTemplate, assignedTo: string) => {
@@ -341,9 +358,26 @@ export default function TasksPage() {
                   task={selectedTask}
                   onAddChecklist={handleAddChecklist}
                   onOpenChecklist={handleOpenChecklist}
+                  onAddInspection={handleAddInspection}
+                  onOpenInspection={(id) => setOpenInspectionId(id)}
+                  inspectorNames={memberNameMap}
                   onEditTask={(t) => canEdit && setEditingTask(t)}
                   canEdit={canEdit}
                 />
+                {openInspectionId && (() => {
+                  const insp = (selectedTask.inspections ?? []).find((i) => i.id === openInspectionId)
+                  return insp ? (
+                    <InspectionDetail
+                      task={selectedTask}
+                      inspection={insp}
+                      onClose={() => setOpenInspectionId(null)}
+                      onDelete={() => {
+                        updateTask({ ...selectedTask, inspections: (selectedTask.inspections ?? []).filter((i) => i.id !== openInspectionId) })
+                        setOpenInspectionId(null)
+                      }}
+                    />
+                  ) : null
+                })()}
                 {openChecklistId && (() => {
                   const cl = selectedTask.checklists.find((c) => c.id === openChecklistId)
                   return cl ? (
@@ -381,6 +415,11 @@ export default function TasksPage() {
         )}
       </main>
       </div>
+
+      {/* Add inspection modal */}
+      {showAddInspection && selectedTask && (
+        <AddInspectionModal projectId={selectedTask.projectId} onSave={handleInspectionSaved} onClose={() => setShowAddInspection(false)} />
+      )}
 
       {/* Add checklist modal */}
       {showAddChecklist && selectedTask && (

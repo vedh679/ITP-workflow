@@ -4,6 +4,7 @@ import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { isManager } from '../workflow'
 import type { AppUser, ProjectOrgEntry } from '../types'
+import { TEAM_OPTIONS } from '../teams'
 
 // The people on a project laid out as an organisation chart. Everyone sees the chart;
 // managers and admins can set each person's title and who they report to.
@@ -98,6 +99,7 @@ export default function OrganisationPage() {
         <div className="flex items-center gap-2 mt-3 flex-wrap">
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_CHIP[m.role]}`}>{ROLE_LABEL[m.role]}</span>
           {m.id === currentUser.id && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">You</span>}
+          {m.team && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">{m.team}</span>}
           <span className="text-[11px] text-slate-500">{open} open task{open === 1 ? '' : 's'}</span>
           {n.children.length > 0 && <span className="text-[11px] text-slate-500">· {n.children.length} report{n.children.length === 1 ? '' : 's'}</span>}
         </div>
@@ -159,6 +161,17 @@ export default function OrganisationPage() {
             <p className="text-3xl font-bold tracking-tight text-ink mt-1">{value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Team mix */}
+      <div className="px-10 pb-4 flex items-center gap-2 flex-wrap flex-shrink-0">
+        <span className="text-xs font-semibold text-slate-500 mr-1">By team</span>
+        {TEAM_OPTIONS.filter((t) => team.some((m) => m.team === t)).map((t) => (
+          <span key={t} className="text-xs font-medium px-3 py-1 rounded-full bg-slate-800 text-slate-300">
+            {t} <span className="font-bold text-ink">{team.filter((m) => m.team === t).length}</span>
+          </span>
+        ))}
+        {team.some((m) => !m.team) && <span className="text-xs font-medium px-3 py-1 rounded-full bg-amber-100 text-amber-700">Unassigned <span className="font-bold">{team.filter((m) => !m.team).length}</span></span>}
       </div>
 
       {editing && canEdit && (
