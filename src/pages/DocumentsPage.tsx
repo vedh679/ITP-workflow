@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
-import { CORE_CATEGORIES, pluralCategory, changesSince, docStatus, pendingDocs, recordFor, versionsOf, type DocStatus } from '../projectDocs'
+import { CORE_CATEGORIES, publishedDocs, pluralCategory, changesSince, docStatus, pendingDocs, recordFor, versionsOf, type DocStatus } from '../projectDocs'
 import { isManager } from '../workflow'
+import { isCentral } from '../access'
 import DocumentView from '../components/DocumentView'
 import type { BmsCategory, BmsDocument, DocBlock } from '../types'
 
@@ -48,7 +49,7 @@ function FillableDocument({ title, meta, blocks, savedValues, canEdit, updatedLi
 
 export default function DocumentsPage() {
   const navigate = useNavigate()
-  const { currentUser, currentProjectId, projects, bmsDocuments, projectDocuments, adoptProjectDocument, saveProjectDocumentFields } = useAppStore()
+  const { currentUser, currentProjectId, projects, bmsDocuments: allBmsDocuments, projectDocuments, adoptProjectDocument, saveProjectDocumentFields } = useAppStore()
   const [adminProjectId, setAdminProjectId] = useState(projects[0]?.id ?? '')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [category, setCategory] = useState<BmsCategory | null>(null)   // null = the category tiles
@@ -58,9 +59,10 @@ export default function DocumentsPage() {
   const [searchOpen, setSearchOpen] = useState(false)
 
   if (!currentUser) { navigate('/'); return null }
+  const bmsDocuments = publishedDocs(allBmsDocuments)   // drafts are only visible to the BMS team
 
   const manager = isManager(currentUser)
-  const isAdmin = currentUser.role === 'admin'
+  const isAdmin = isCentral(currentUser)   // IT and the BMS team work across all projects
   const projectId = isAdmin ? adminProjectId : (currentProjectId ?? '')
   const project = projects.find((p) => p.id === projectId)
 

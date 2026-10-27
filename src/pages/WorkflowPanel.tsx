@@ -55,7 +55,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(workflow.edges.map(toFlowEdge))
 
   const selected = nodes.find((n) => n.selected) ?? null
-  const approvers = members.filter((m) => m.role === 'admin' || m.role === 'manager')
+  const approvers = members.filter((m) => m.role === 'it' || m.role === 'manager')
 
   const snapshot = useMemo(() => JSON.stringify({
     name, description,

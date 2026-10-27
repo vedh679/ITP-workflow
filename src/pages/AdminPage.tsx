@@ -1,22 +1,24 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import BmsPanel from './BmsPanel'
 import WorkflowPanel from './WorkflowPanel'
-import type { AppUser, Project } from '../types'
+import type { AppUser, Project, UserRole } from '../types'
 import { TEAM_OPTIONS } from '../teams'
+import { canAdministerSystem, canManageBms, isIT, roleChip, roleChipSelected, ROLE_DESCRIPTION, ROLE_LABEL } from '../access'
 
 // ─────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────
 type Tab = 'members' | 'projects' | 'bms' | 'workflow'
 
-const ROLE_BADGE: Record<string, string> = {
-  admin:    'bg-ink text-white border-ink',
+const ROLE_BADGE: Record<UserRole, string> = {
+  it:       'bg-ink text-white border-ink',
+  bms:      'bg-amber-100 text-amber-700 border-amber-500/30',
   manager:  'bg-coral-tint text-coral-dark border-coral/30',
   engineer: 'bg-green-100 text-green-700 border-green-500/30',
 }
-const ROLE_OPTIONS = ['admin', 'manager', 'engineer'] as const
+const ROLE_OPTIONS: UserRole[] = ['it', 'bms', 'manager', 'engineer']
 
 function newMember(): AppUser {
   return { id: `u-${Date.now()}`, email: '', name: '', role: 'engineer', projectIds: [] }
@@ -68,12 +70,12 @@ function MembersPanel() {
             <button key={m.id} onClick={() => { setSelectedId(m.id); setEditing(null) }}
               className={`w-full text-left px-3 py-2.5 rounded-xl border transition-all ${selectedId === m.id && !editing ? 'bg-slate-800 border-slate-700' : 'hover:bg-slate-800 border-transparent'}`}>
               <div className="flex items-center gap-2">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === 'admin' ? 'bg-ink text-white' : m.role === 'manager' ? 'bg-coral-tint text-coral-dark' : 'bg-green-100 text-green-700'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${roleChip(m.role)}`}>
                   {m.name.charAt(0)}
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-slate-200 truncate">{m.name}</div>
-                  <div className="text-xs text-slate-500 truncate">{m.role} · {m.team ?? 'No team'}</div>
+                  <div className="text-xs text-slate-500 truncate">{ROLE_LABEL[m.role]} · {m.team ?? 'No team'}</div>
                 </div>
               </div>
             </button>
@@ -116,22 +118,16 @@ function MembersPanel() {
               {/* Role */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Role *</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {ROLE_OPTIONS.map((role) => (
                     <button key={role} type="button" onClick={() => setEditing({ ...editing, role })}
-                      className={`py-2 rounded-xl border text-sm font-semibold capitalize transition-all ${editing.role === role
-                        ? role === 'admin' ? 'bg-ink border-ink text-white'
-                          : role === 'manager' ? 'bg-coral-tint border-coral text-coral-dark'
-                          : 'bg-green-100 border-green-500 text-green-700'
-                        : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
-                      {role}
+                      className={`py-2 rounded-xl border text-sm font-semibold transition-all ${editing.role === role ? roleChipSelected(role) : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+                      {ROLE_LABEL[role]}
                     </button>
                   ))}
                 </div>
                 <p className="text-xs text-slate-500 mt-1.5">
-                  {editing.role === 'admin' ? 'Full access including template management and member settings.' :
-                   editing.role === 'manager' ? 'Can create and manage tasks and checklists. No admin settings.' :
-                   'Can view tasks and complete checklists only.'}
+                  {ROLE_DESCRIPTION[editing.role]}
                 </p>
               </div>
 
@@ -180,7 +176,7 @@ function MembersPanel() {
           <div className="max-w-xl">
             <div className="flex items-start justify-between mb-5">
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${selected.role === 'admin' ? 'bg-ink text-white' : selected.role === 'manager' ? 'bg-coral-tint text-coral-dark' : 'bg-green-100 text-green-700'}`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold ${roleChip(selected.role)}`}>
                   {selected.name.charAt(0)}
                 </div>
                 <div>
@@ -198,12 +194,10 @@ function MembersPanel() {
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-3">
               <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-2">Role</p>
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold border ${ROLE_BADGE[selected.role]}`}>
-                {selected.role}
+                {ROLE_LABEL[selected.role]}
               </span>
               <p className="text-xs text-slate-500 mt-2">
-                {selected.role === 'admin' ? 'Full access including template management and member settings.' :
-                 selected.role === 'manager' ? 'Can create and manage tasks and checklists. No admin settings.' :
-                 'Can view tasks and complete checklists only.'}
+                {ROLE_DESCRIPTION[selected.role]}
               </p>
             </div>
 
@@ -344,14 +338,14 @@ function ProjectsPanel() {
                 <ul className="divide-y divide-slate-800">
                   {projectMembers(selected.id).map((m) => (
                     <li key={m.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${m.role === 'admin' ? 'bg-ink text-white' : m.role === 'manager' ? 'bg-coral-tint text-coral-dark' : 'bg-green-100 text-green-700'}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${roleChip(m.role)}`}>
                         {m.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-slate-200">{m.name}</div>
                         <div className="text-xs text-slate-500">{m.email}</div>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${ROLE_BADGE[m.role]}`}>{m.role}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${ROLE_BADGE[m.role]}`}>{ROLE_LABEL[m.role]}</span>
                     </li>
                   ))}
                 </ul>
@@ -385,17 +379,18 @@ export default function AdminPage() {
   const currentUser = useAppStore((s) => s.currentUser)
   const [tab, setTab] = useState<Tab>('bms')
 
-  if (!currentUser || currentUser.role !== 'admin') {
-    navigate('/home')
-    return null
-  }
+  // IT and the BMS team only; anyone else is sent home
+  if (!currentUser || !canManageBms(currentUser)) return <Navigate to={currentUser ? '/home' : '/'} replace />
 
-  const TABS: { key: Tab; label: string }[] = [
-    { key: 'projects', label: 'Projects' },
-    { key: 'members',  label: 'Members' },
-    { key: 'bms',      label: 'BMS' },
-    { key: 'workflow', label: 'Workflow' },
-  ]
+  // IT sees everything; the BMS team's workspace is the BMS only
+  const TABS: { key: Tab; label: string }[] = canAdministerSystem(currentUser)
+    ? [
+        { key: 'projects', label: 'Projects' },
+        { key: 'members',  label: 'Members' },
+        { key: 'bms',      label: 'BMS' },
+        { key: 'workflow', label: 'Workflow' },
+      ]
+    : [{ key: 'bms', label: 'BMS' }]
 
   return (
     <div className="flex h-full bg-white overflow-hidden flex-col">
@@ -406,8 +401,8 @@ export default function AdminPage() {
             className="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink transition-colors flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 19l-7-7 7-7" /></svg>
           </button>
-          <h1 className="text-3xl font-normal tracking-tight text-ink">Admin</h1>
-          <span className="hidden xl:inline text-xs font-semibold bg-ink text-white px-3 py-1 rounded-full whitespace-nowrap">Admin only</span>
+          <h1 className="text-3xl font-normal tracking-tight text-ink">{isIT(currentUser) ? 'IT' : 'BMS'}</h1>
+          <span className="hidden xl:inline text-xs font-semibold bg-ink text-white px-3 py-1 rounded-full whitespace-nowrap">{isIT(currentUser) ? 'IT access' : 'BMS team access'}</span>
         </div>
 
         {/* Centred on the window */}

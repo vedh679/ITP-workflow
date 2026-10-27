@@ -53,9 +53,12 @@ export function recordFor(records: ProjectDocument[], projectId: string, docId: 
   return records.find((r) => r.projectId === projectId && r.bmsDocumentId === docId)
 }
 
+/** Only published documents are rolled out to projects; drafts stay with the BMS team */
+export const publishedDocs = (docs: BmsDocument[]) => docs.filter((d) => d.status !== 'draft')
+
 /** Documents in a project that are behind the latest BMS version (or not yet added) */
 export function pendingDocs(projectId: string, docs: BmsDocument[], records: ProjectDocument[]) {
-  return docs
+  return publishedDocs(docs)
     .map((doc) => ({ doc, status: docStatus(doc, recordFor(records, projectId, doc.id)) }))
     .filter((x) => x.status !== 'current')
 }

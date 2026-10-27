@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'manager' | 'engineer'
+export type UserRole = 'it' | 'bms' | 'manager' | 'engineer'
 
 export type TeamType = 'Quality' | 'Site Engineer' | 'Engineer' | 'Manager' | 'Commercial' | 'Planning' | 'Executive' | 'Finance'
 
@@ -168,6 +168,35 @@ export interface DocBlock {
 
 export type BmsCategory = 'Policy' | 'Procedure' | 'Form' | 'Template' | 'Register' | 'Manual' | 'Checklist Template'
 
+// A new version being prepared for a published document. It is only visible to the BMS team
+// until it is published, which rolls it out to the projects.
+export interface BmsPending {
+  title: string
+  docNumber: string
+  category: BmsCategory
+  description: string
+  version: string
+  content: string
+  blocks?: DocBlock[]
+  file?: ChecklistAttachment
+  author?: string
+  approvedBy?: string
+  reviewIntervalMonths?: number
+  changeNote: string
+  savedAt: string
+  savedBy: string
+}
+
+// One periodic review of a published document
+export interface BmsReview {
+  id: string
+  at: string
+  by: string
+  version: string
+  outcome: 'no-changes' | 'changes-needed'
+  comment: string
+}
+
 export interface BmsDocument {
   id: string
   title: string
@@ -182,6 +211,14 @@ export interface BmsDocument {
   blocks?: DocBlock[]           // structured document body (core documents); `content` is derived from it
   requiresSignature?: boolean   // checklist templates only
   changeNote?: string     // what changed from the previous version
+  status?: 'draft' | 'published'   // drafts are invisible to projects; undefined counts as published
+  pending?: BmsPending             // next version being prepared (published documents only)
+  publishedAt?: string
+  publishedBy?: string
+  reviewIntervalMonths?: number    // how often the document must be reviewed (default 12)
+  lastReviewedAt?: string
+  lastReviewedBy?: string
+  reviews?: BmsReview[]            // review history, newest first
   revisions?: BmsRevision[]    // archived older versions, oldest first
   updatedAt: string       // when the current version was created
 }

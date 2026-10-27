@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
+import { canAccessTasks, isCentral } from '../access'
 import { addDays, dayLabel, entryHours, fmtHours, rangeLabel, toISO, weekDays, weekStartOf } from '../timesheet'
 import type { TimesheetEntry } from '../types'
 
@@ -11,9 +12,9 @@ const label = 'block text-xs font-semibold text-slate-400 mb-1'
 
 function EntryModal({ initial, onSave, onClose }: { initial: TimesheetEntry; onSave: (e: TimesheetEntry) => void; onClose: () => void }) {
   const { currentUser, projects, tasks } = useAppStore()
-  const myProjects = currentUser?.role === 'admin' ? projects : projects.filter((p) => currentUser?.projectIds.includes(p.id))
+  const myProjects = isCentral(currentUser) ? projects : projects.filter((p) => currentUser?.projectIds.includes(p.id))
   const [e, setE] = useState<TimesheetEntry>(initial)
-  const projectTasks = tasks.filter((t) => t.projectId === e.projectId)
+  const projectTasks = canAccessTasks(currentUser) ? tasks.filter((t) => t.projectId === e.projectId) : []   // the BMS team can't see tasks
   const hours = entryHours(e)
   const error = !e.projectId ? 'Choose a project.' : !e.start || !e.end ? 'Enter a start and end time.'
     : hours <= 0 ? 'End time must be after the start time (and longer than the break).' : ''
@@ -34,11 +35,13 @@ function EntryModal({ initial, onSave, onClose }: { initial: TimesheetEntry; onS
                 {myProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select></div>
           </div>
+          {canAccessTasks(currentUser) && (
           <div><label className={label}>Task (optional)</label>
             <select className={input} value={e.taskId ?? ''} disabled={!e.projectId} onChange={(ev) => setE({ ...e, taskId: ev.target.value || undefined })}>
               <option value="">General project work</option>
               {projectTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select></div>
+          )}
           <div className="grid grid-cols-3 gap-3">
             <div><label className={label}>Start</label><input type="time" className={input} value={e.start} onChange={(ev) => setE({ ...e, start: ev.target.value })} /></div>
             <div><label className={label}>End</label><input type="time" className={input} value={e.end} onChange={(ev) => setE({ ...e, end: ev.target.value })} /></div>
@@ -156,7 +159,7 @@ export default function TimesheetPage() {
                         <p className="text-xs text-slate-500">{e.breakMins ? `${e.breakMins} min break` : 'No break'}</p>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-ink truncate">{projectName(e.projectId)}{taskName(e.taskId) && <span className="text-slate-400"> · {taskName(e.taskId)}</span>}</p>
+                        <p className="text-sm text-ink truncate">{projectName(e.projectId)}{canAccessTasks(currentUser) && taskName(e.taskId) && <span className="text-slate-400"> · {taskName(e.taskId)}</span>}</p>
                         {e.description && <p className="text-xs text-slate-400 truncate">{e.description}</p>}
                       </div>
                       <span className="text-sm font-bold text-ink w-16 text-right">{fmtHours(entryHours(e))}</span>

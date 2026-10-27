@@ -72,7 +72,8 @@ const SAMPLE_PROJECTS: Project[] = [
 
 // ── Sample members ────────────────────────────────────────────────
 const SAMPLE_MEMBERS: AppUser[] = [
-  { id: 'u1', email: 'admin@itp.com',     name: 'Admin User',      role: 'admin',    team: 'Executive',    projectIds: ['p1', 'p2'] },
+  { id: 'u1', email: 'it@itp.com',        name: 'IT Admin',        role: 'it',       team: 'Executive',    projectIds: ['p1', 'p2'] },
+  { id: 'u6', email: 'bms@itp.com',       name: 'BMS Lead',        role: 'bms',      team: 'Quality',      projectIds: [] },
   { id: 'u2', email: 'manager@itp.com',   name: 'Project Manager', role: 'manager',  team: 'Manager',  projectIds: ['p1', 'p2'] },
   { id: 'u3', email: 'vedh@itp.com',      name: 'Vedh',            role: 'manager',  team: 'Manager',  projectIds: ['p1'] },
   { id: 'u4', email: 'inspector@itp.com', name: 'Site Inspector',  role: 'engineer', team: 'Quality', projectIds: ['p1'] },
@@ -229,11 +230,11 @@ const SAMPLE_PROJECT_DOCUMENTS: ProjectDocument[] = ['p1', 'p2'].flatMap((projec
 
 // ── Sample project organisation ──
 const SAMPLE_PROJECT_ORG: ProjectOrgEntry[] = [
-  { projectId: 'p1', memberId: 'u1', title: 'Operations Director',   reportsToId: null },
+  { projectId: 'p1', memberId: 'u1', title: 'IT Administrator',   reportsToId: null },
   { projectId: 'p1', memberId: 'u2', title: 'Project Manager',       reportsToId: 'u1' },
   { projectId: 'p1', memberId: 'u3', title: 'Site Manager',          reportsToId: 'u2' },
   { projectId: 'p1', memberId: 'u4', title: 'Site Inspector (QA)',   reportsToId: 'u3' },
-  { projectId: 'p2', memberId: 'u1', title: 'Operations Director',   reportsToId: null },
+  { projectId: 'p2', memberId: 'u1', title: 'IT Administrator',   reportsToId: null },
   { projectId: 'p2', memberId: 'u2', title: 'Project Manager',       reportsToId: 'u1' },
   { projectId: 'p2', memberId: 'u5', title: 'Commissioning Engineer', reportsToId: 'u2' },
 ]
@@ -324,6 +325,19 @@ export const useAppStore = create<AppState>()(
         }] }
       }),
     }),
-    { name: 'itp-store' }
+    {
+      name: 'itp-store',
+      // v2: the old "admin" access role became "IT" (the new "BMS team" role sits beside it)
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = persisted as { members?: { role: string }[]; currentUser?: { role: string } | null }
+        if (version < 2) {
+          const fix = <T extends { role: string }>(u: T): T => (u.role === 'admin' ? { ...u, role: 'it' } : u)
+          if (state.members) state.members = state.members.map(fix)
+          if (state.currentUser) state.currentUser = fix(state.currentUser)
+        }
+        return state as never
+      },
+    }
   )
 )

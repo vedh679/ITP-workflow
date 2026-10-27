@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import type { Task, ChecklistTemplate, Inspection } from '../types'
 import TaskMindMap from '../components/TaskMindMap'
@@ -10,6 +10,7 @@ import NewTaskModal from '../components/NewTaskModal'
 import AddInspectionModal from '../components/AddInspectionModal'
 import InspectionDetail from '../components/InspectionDetail'
 import AppHeader from '../components/AppHeader'
+import { canAccessTasks, canManageProject, isCentral } from '../access'
 import TaskWorkflowBanner from '../components/TaskWorkflowBanner'
 
 function statusBadge(status: Task['status']) {
@@ -35,7 +36,7 @@ export default function TasksPage() {
   const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
 
   // Non-admins only see tasks for the active project
-  const projectFilteredTasks = currentUser?.role === 'admin'
+  const projectFilteredTasks = isCentral(currentUser)
     ? tasks
     : tasks.filter((t) => t.projectId === currentProjectId)
 
@@ -59,8 +60,9 @@ export default function TasksPage() {
   }, [currentProjectId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!currentUser) { navigate('/'); return null }
+  if (!canAccessTasks(currentUser)) return <Navigate to="/home" replace />   // the BMS team has no access to tasks
 
-  const canEdit = currentUser.role === 'admin' || currentUser.role === 'manager'
+  const canEdit = canManageProject(currentUser)
 
   const filteredTasks = projectFilteredTasks.filter((t) => {
     const matchSearch = t.name.toLowerCase().includes(search.toLowerCase())

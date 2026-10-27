@@ -21,7 +21,7 @@ export function isChecklistComplete(cl: TaskChecklist): boolean {
 }
 
 export function isManager(user: AppUser | null): boolean {
-  return user?.role === 'admin' || user?.role === 'manager'
+  return user?.role === 'it' || user?.role === 'manager'
 }
 
 /** Label for the manager's "go to the next stage" button */
@@ -34,9 +34,9 @@ export function canActOnStep(user: AppUser | null, task: Task, node: WorkflowNod
   if (!user) return false
   if (isManager(user)) {
     if (node.data.kind !== 'approval' || isClientApproval(node)) return true
-    // member approval: the named approver, or an admin
+    // member approval: the named approver, or IT
     const approver = members.find((m) => m.id === node.data.approverId)
-    return !approver || approver.id === user.id || user.role === 'admin'
+    return !approver || approver.id === user.id || user.role === 'it'
   }
   if (node.data.kind === 'approval') {
     return !isClientApproval(node) && node.data.approverId === user.id

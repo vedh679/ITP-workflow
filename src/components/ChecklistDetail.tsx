@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import type { Task, TaskChecklist, ChecklistAttachment } from '../types'
+import { canManageProject } from '../access'
 import { useAppStore } from '../store'
 import MemberPicker from './MemberPicker'
 
@@ -403,7 +404,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const canManage = currentUser?.role === 'admin' || currentUser?.role === 'manager'
+  const canManage = canManageProject(currentUser)
 
   const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Task, AppUser, CustomTable } from '../types'
+import { canManageProject } from '../access'
 import { useAppStore } from '../store'
 import MemberPicker from './MemberPicker'
 
@@ -826,7 +827,7 @@ const SHEETS: { id: Sheet; label: string; icon: React.ReactNode }[] = [
 
 export default function TaskTableView({ task, members }: Props) {
   const currentUser = useAppStore((s) => s.currentUser)
-  const canManage = currentUser?.role === 'admin' || currentUser?.role === 'manager'
+  const canManage = canManageProject(currentUser)
   const [sheet, setSheet] = useState<Sheet>('itp')
   const [showExport, setShowExport] = useState(false)
 

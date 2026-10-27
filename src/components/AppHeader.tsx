@@ -3,6 +3,7 @@ import { useAppStore } from '../store'
 import Logo from './Logo'
 import ProjectSwitcher from './ProjectSwitcher'
 import { pendingDocs } from '../projectDocs'
+import { canAccessTasks, isCentral, isIT } from '../access'
 
 type Active = 'overview' | 'tasks' | 'documents' | 'organisation' | 'timesheet' | 'admin'
 
@@ -14,7 +15,7 @@ export default function AppHeader({ active }: { active: Active }) {
   if (!currentUser) return null
 
   // Documents behind the latest BMS version: the manager's project, or every project for an admin
-  const docsBehind = currentUser.role === 'admin'
+  const docsBehind = isCentral(currentUser)
     ? projects.reduce((n, p) => n + pendingDocs(p.id, bmsDocuments, projectDocuments).length, 0)
     : currentUser.role === 'manager' && currentProjectId ? pendingDocs(currentProjectId, bmsDocuments, projectDocuments).length : 0
 
@@ -26,15 +27,15 @@ export default function AppHeader({ active }: { active: Active }) {
 
   const tabs: { key: Active; label: string; path: string; badge?: number }[] = [
     { key: 'overview', label: 'Overview', path: '/home' },
-    { key: 'tasks', label: 'Tasks', path: '/tasks' },
+    ...(canAccessTasks(currentUser) ? [{ key: 'tasks' as const, label: 'Tasks', path: '/tasks' }] : []),
     { key: 'documents', label: 'Documents', path: '/documents', badge: docsBehind },
     { key: 'organisation', label: 'Organisation', path: '/organisation' },
     { key: 'timesheet', label: 'Timesheet', path: '/timesheet' },
-    ...(currentUser.role === 'admin' ? [{ key: 'admin' as const, label: 'Admin', path: '/admin' }] : []),
+    ...(isCentral(currentUser) ? [{ key: 'admin' as const, label: isIT(currentUser) ? 'IT' : 'BMS', path: '/admin' }] : []),
   ]
   // Project pages need a chosen project; the timesheet is personal and doesn't
   const go = (key: Active, path: string) => {
-    if (key !== 'timesheet' && currentUser.role !== 'admin' && !currentProjectId && currentUser.projectIds.length > 1) navigate('/select-project')
+    if (key !== 'timesheet' && !isCentral(currentUser) && !currentProjectId && currentUser.projectIds.length > 1) navigate('/select-project')
     else navigate(path)
   }
   const pill = 'px-3 py-2 xl:px-4 xl:py-2.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap'

@@ -3,6 +3,8 @@ import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { pendingDocs } from '../projectDocs'
 import { isChecklistComplete, isManager } from '../workflow'
+import { canAccessTasks, canManageBms, isCentral, isIT } from '../access'
+import { fmtDate, nextReviewDue, reviewState, reviewsDue } from '../bmsReview'
 
 function greeting() {
   const h = new Date().getHours()
@@ -38,7 +40,7 @@ export default function HomePage() {
   }
 
   const activeProject = projects.find((p) => p.id === currentProjectId)
-  const isAdmin = currentUser.role === 'admin'
+  const isAdmin = isCentral(currentUser)   // IT and the BMS team work across all projects
 
   // Headline numbers for the tasks this person can see
   const scoped = isAdmin ? tasks : tasks.filter((t) => t.projectId === currentProjectId)
@@ -84,7 +86,27 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* KPI row */}
+        {/* Documents due for review — for the people who maintain the BMS */}
+        {canManageBms(currentUser) && (() => {
+          const due = reviewsDue(bmsDocuments)
+          if (due.length === 0) return null
+          const overdue = due.filter((d) => reviewState(d) === 'overdue').length
+          return (
+            <div className="mt-4 px-5 py-4 rounded-3xl bg-amber-50 border border-amber-100 flex items-center gap-4 flex-wrap">
+              <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">!</div>
+              <div className="flex-1 min-w-[220px]">
+                <p className="text-sm font-semibold text-amber-700">{due.length} BMS document{due.length === 1 ? ' is' : 's are'} due for review{overdue ? ` (${overdue} overdue)` : ''}</p>
+                <p className="text-xs text-amber-700/80">
+                  {due.slice(0, 3).map((d) => `${d.title} — ${fmtDate(nextReviewDue(d))}`).join(' · ')}{due.length > 3 ? '…' : ''}
+                </p>
+              </div>
+              <button onClick={() => navigate('/admin')} className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">Review & update</button>
+            </div>
+          )
+        })()}
+
+        {/* Task numbers — not shown to the BMS team, who have no access to tasks */}
+        {canAccessTasks(currentUser) && (
         <div className="grid gap-5 mt-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi icon={icon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2')}
             label="Active tasks" value={active.length} caption={`of ${scoped.length} total`} />
@@ -96,10 +118,12 @@ export default function HomePage() {
           <Kpi icon={icon('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z')} label="Overdue" value={overdue.length}
             caption={overdue.length > 0 ? 'past due date' : 'on schedule'} tone={overdue.length > 0 ? 'warn' : undefined} />
         </div>
+        )}
 
         {/* Where to next */}
         <h2 className="text-xl font-bold text-ink mt-10 mb-4">Jump in</h2>
         <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
+          {canAccessTasks(currentUser) && (
           <button onClick={() => navigate('/tasks')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
             <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
@@ -111,6 +135,7 @@ export default function HomePage() {
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
+          )}
 
           <button onClick={() => navigate('/documents')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
@@ -161,8 +186,8 @@ export default function HomePage() {
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-ink">Admin</h3>
-                <p className="text-slate-400 text-sm mt-0.5">Members, projects, BMS documents & workflows</p>
+                <h3 className="text-xl font-bold text-ink">{isIT(currentUser) ? 'IT' : 'BMS'}</h3>
+                <p className="text-slate-400 text-sm mt-0.5">{isIT(currentUser) ? 'Members, projects, BMS documents & workflows' : 'Create, edit, publish and roll out core documents'}</p>
               </div>
               <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
             </button>

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAppStore } from '../store'
+import { isCentral } from '../access'
 
 interface Props {
   /** Kept for compatibility — both variants now share the light pill style */
@@ -20,7 +21,7 @@ export default function ProjectSwitcher({ variant = 'dark' }: Props) {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  if (!currentUser || currentUser.role === 'admin') return null
+  if (!currentUser || isCentral(currentUser)) return null
   if (currentUser.projectIds.length <= 1) return null   // only show when multiple
 
   const assignedProjects = projects.filter((p) => currentUser.projectIds.includes(p.id))

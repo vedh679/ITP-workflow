@@ -3,24 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { isManager } from '../workflow'
+import { canAccessTasks, isCentral, roleChip, ROLE_LABEL, ROLE_ORDER } from '../access'
 import type { AppUser, ProjectOrgEntry } from '../types'
 import { TEAM_OPTIONS } from '../teams'
 
 // The people on a project laid out as an organisation chart. Everyone sees the chart;
 // managers and admins can set each person's title and who they report to.
-const ROLE_LABEL: Record<AppUser['role'], string> = { admin: 'Administrator', manager: 'Manager', engineer: 'Engineer' }
-const ROLE_CHIP: Record<AppUser['role'], string> = {
-  admin: 'bg-ink text-white', manager: 'bg-coral-tint text-coral-dark', engineer: 'bg-green-100 text-green-700',
-}
-const ROLE_ORDER: Record<AppUser['role'], number> = { admin: 0, manager: 1, engineer: 2 }
-
 interface OrgNode { member: AppUser; title: string; reportsToId: string | null; children: OrgNode[] }
 
 /** Where a member sits when nobody has set it: admins on top, managers under an admin, engineers under a manager */
 function defaultParent(m: AppUser, team: AppUser[]): string | null {
-  if (m.role === 'admin') return null
-  if (m.role === 'manager') return team.find((t) => t.role === 'admin')?.id ?? null
-  return (team.find((t) => t.role === 'manager' && t.id !== m.id) ?? team.find((t) => t.role === 'admin'))?.id ?? null
+  if (m.role === 'it') return null
+  if (m.role === 'bms' || m.role === 'manager') return team.find((t) => t.role === 'it')?.id ?? null
+  return (team.find((t) => t.role === 'manager' && t.id !== m.id) ?? team.find((t) => t.role === 'it'))?.id ?? null
 }
 
 function buildTree(team: AppUser[], entries: ProjectOrgEntry[]): { roots: OrgNode[]; parentOf: Record<string, string | null> } {
@@ -70,7 +65,7 @@ export default function OrganisationPage() {
   const [adminProjectId, setAdminProjectId] = useState(projects[0]?.id ?? '')
   const [editing, setEditing] = useState(false)
 
-  const isAdmin = currentUser?.role === 'admin'
+  const isAdmin = isCentral(currentUser)
   const projectId = isAdmin ? adminProjectId : (currentProjectId ?? '')
   const project = projects.find((p) => p.id === projectId)
   const team = useMemo(() => members.filter((m) => m.projectIds.includes(projectId)), [members, projectId])
@@ -90,17 +85,17 @@ export default function OrganisationPage() {
     return (
       <div className={`w-[230px] bg-white border rounded-3xl p-4 text-left shadow-sm ${m.id === currentUser.id ? 'border-ink' : 'border-slate-700'}`}>
         <div className="flex items-center gap-3">
-          <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${ROLE_CHIP[m.role]}`}>{m.name.charAt(0).toUpperCase()}</div>
+          <div className={`w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${roleChip(m.role)}`}>{m.name.charAt(0).toUpperCase()}</div>
           <div className="min-w-0">
             <p className="text-sm font-bold text-ink truncate">{m.name}</p>
             <p className="text-xs text-slate-400 truncate">{n.title}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${ROLE_CHIP[m.role]}`}>{ROLE_LABEL[m.role]}</span>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleChip(m.role)}`}>{ROLE_LABEL[m.role]}</span>
           {m.id === currentUser.id && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">You</span>}
           {m.team && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">{m.team}</span>}
-          <span className="text-[11px] text-slate-500">{open} open task{open === 1 ? '' : 's'}</span>
+          {canAccessTasks(currentUser) && <span className="text-[11px] text-slate-500">{open} open task{open === 1 ? '' : 's'}</span>}
           {n.children.length > 0 && <span className="text-[11px] text-slate-500">· {n.children.length} report{n.children.length === 1 ? '' : 's'}</span>}
         </div>
         <p className="text-[11px] text-slate-500 mt-1.5 truncate">{m.email}</p>
@@ -154,8 +149,8 @@ export default function OrganisationPage() {
       </div>
 
       {/* Team summary */}
-      <div className="px-10 pb-4 grid grid-cols-2 lg:grid-cols-4 gap-4 flex-shrink-0">
-        {[['Team size', team.length], ['Administrators', count('admin')], ['Managers', count('manager')], ['Engineers', count('engineer')]].map(([label, value]) => (
+      <div className="px-10 pb-4 grid grid-cols-2 lg:grid-cols-5 gap-4 flex-shrink-0">
+        {[['Team size', team.length], ['IT', count('it')], ['BMS team', count('bms')], ['Managers', count('manager')], ['Engineers', count('engineer')]].map(([label, value]) => (
           <div key={label as string} className="bg-slate-900 border border-slate-800 rounded-3xl px-5 py-4">
             <p className="text-sm text-slate-400">{label}</p>
             <p className="text-3xl font-bold tracking-tight text-ink mt-1">{value}</p>
@@ -181,7 +176,7 @@ export default function OrganisationPage() {
       {/* Chart */}
       <div className="flex-1 overflow-auto border-t border-slate-800 bg-slate-900/50">
         {team.length === 0 ? (
-          <p className="p-10 text-sm text-slate-500">{project ? 'No members are assigned to this project yet. Add them from Admin → Members.' : 'Select a project to see its organisation.'}</p>
+          <p className="p-10 text-sm text-slate-500">{project ? 'No members are assigned to this project yet. IT can add them under IT → Members.' : 'Select a project to see its organisation.'}</p>
         ) : (
           <div className="org-tree min-w-max px-10 py-10 flex justify-center">
             <ul>{roots.map(renderBranch)}</ul>

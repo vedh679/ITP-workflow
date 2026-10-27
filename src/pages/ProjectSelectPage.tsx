@@ -99,7 +99,7 @@ export default function ProjectSelectPage() {
 
             {assignedProjects.length === 0 && (
               <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center">
-                <p className="text-slate-400">You have no projects assigned. Contact your admin.</p>
+                <p className="text-slate-400">You have no projects assigned. Contact IT.</p>
               </div>
             )}
           </div>

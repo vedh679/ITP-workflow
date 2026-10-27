@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useAppStore } from '../store'
-import type { BmsDocument, BmsCategory, BmsRevision, ChecklistTemplate } from '../types'
+import type { BmsDocument, BmsCategory, BmsRevision, BmsPending, BmsReview, ChecklistTemplate } from '../types'
+import { useAppStore as useStore } from '../store'
 import { CORE_CATEGORIES } from '../projectDocs'
 import { blocksToText, contentToBlocks, newBlockId } from '../docBlocks'
+import { DEFAULT_REVIEW_MONTHS, fmtDate, nextReviewDue, reviewState, reviewsDue } from '../bmsReview'
 import DocumentEditor from '../components/DocumentEditor'
 import DocumentView from '../components/DocumentView'
 
@@ -214,6 +216,12 @@ export default function BmsPanel() {
   const [draft, setDraft] = useState<BmsDocument | null>(null)
   const [filter, setFilter] = useState<Filter>('All')
   const [search, setSearch] = useState('')
+  const [notice, setNotice] = useState('')
+  const [reviewing, setReviewing] = useState<{ comment: string } | null>(null)
+  const [needsReview, setNeedsReview] = useState(false)
+  const [showReviews, setShowReviews] = useState(false)
+  const currentUser = useStore((s) => s.currentUser)
+  const me = currentUser?.name ?? 'Unknown'
 
   const isChecklist = filter === CHECKLIST
   const docs = isChecklist ? templates.map(templateToDoc) : bmsDocs
@@ -221,20 +229,123 @@ export default function BmsPanel() {
   const updateDoc = (d: BmsDocument) => isChecklist ? updateTemplate(docToTemplate(d, templates.find((t) => t.id === d.id))) : updateBms(d)
   const deleteDoc = (id: string) => isChecklist ? deleteTemplate(id) : deleteBms(id)
 
+  const dueIds = new Set(reviewsDue(docs).map((d) => d.id))
   const visible = docs.filter((d) =>
     (filter === 'All' || d.category === filter) &&
+    (!needsReview || dueIds.has(d.id)) &&
     `${d.title} ${d.docNumber}`.toLowerCase().includes(search.toLowerCase()))
   const selected = docs.find((d) => d.id === selectedId) ?? (draft ? null : visible[0] ?? null)
 
   const isExisting = !!draft && docs.some((d) => d.id === draft.id)
-  const versionClash = isExisting && !!selected && !!draft && draft.version.trim() === selected.version
-  const canSave = !!draft && !!draft.title.trim() && !!draft.version.trim() &&
-    (!isChecklist || draft.content.split('\n').some((l) => l.trim())) &&
-    (!isExisting || (!!draft.changeNote?.trim() && !versionClash))
+  // Core documents start as drafts; a version that is already published needs a new version number and a change note
+  const publishedExisting = isExisting && !!selected && selected.status !== 'draft'
+  const versionClash = publishedExisting && !!draft && draft.version.trim() === selected!.version
+  const canDraft = !!draft && !!draft.title.trim() && !!draft.version.trim()
+  const canSave = canDraft &&
+    (!isChecklist || draft!.content.split('\n').some((l) => l.trim())) &&
+    (!publishedExisting || (!!draft!.changeNote?.trim() && !versionClash))
 
-  const startNew = () => { setDraft(newBmsDoc(isChecklist ? CHECKLIST : 'Template')); setSelectedId(null) }
-  const startEdit = () => { if (!selected) return; setSelectedId(selected.id); setDraft({ ...selected, version: bumpVersion(selected.version), changeNote: '',
-    blocks: selected.category === CHECKLIST ? undefined : (selected.blocks ?? contentToBlocks(selected.content)) }) }
+  const startNew = (category: BmsCategory = 'Policy') => { setDraft(newBmsDoc(isChecklist ? CHECKLIST : category)); setSelectedId(null); setReviewing(null) }
+  const startEdit = () => {
+    if (!selected) return
+    setSelectedId(selected.id); setNotice('')
+    if (isChecklist) {
+      setDraft({ ...selected, version: bumpVersion(selected.version), changeNote: '', blocks: undefined })
+    } else if (selected.pending) {
+      // carry on with the saved draft of the next version
+      const { savedAt: _a, savedBy: _b, ...fields } = selected.pending
+      setDraft({ ...selected, ...fields, blocks: fields.blocks ?? contentToBlocks(fields.content) })
+    } else {
+      setDraft({ ...selected, version: selected.status === 'draft' ? selected.version : bumpVersion(selected.version),
+        changeNote: '', blocks: selected.blocks ?? contentToBlocks(selected.content) })
+    }
+  }
+
+  // ── Core documents: save as a draft, or publish (roll out to the projects) ──
+  const bodyOf = (d: BmsDocument): BmsDocument => d.blocks ? { ...d, content: blocksToText(d.blocks) } : d
+  const pendingOf = (d: BmsDocument): BmsPending => ({
+    title: d.title, docNumber: d.docNumber, category: d.category, description: d.description, version: d.version,
+    content: d.content, blocks: d.blocks, file: d.file, author: d.author, approvedBy: d.approvedBy,
+    reviewIntervalMonths: d.reviewIntervalMonths, changeNote: d.changeNote ?? '', savedAt: new Date().toISOString(), savedBy: me,
+  })
+  const saveDraftDoc = () => {
+    if (!draft || !canDraft) return
+    const body = bodyOf(draft), now = new Date().toISOString()
+    const prev = docs.find((d) => d.id === draft.id)
+    if (!prev) addBms({ ...body, status: 'draft', changeNote: 'Initial release', revisions: [], pending: undefined, updatedAt: now })
+    else if (prev.status === 'draft') updateBms({ ...prev, ...body, status: 'draft', updatedAt: now })
+    else updateBms({ ...prev, pending: pendingOf(body) })   // the published version stays live
+    setSelectedId(draft.id); setDraft(null)
+    setNotice('Draft saved. Projects can’t see it until you publish.')
+  }
+  const publishDoc = () => {
+    if (!draft || !canSave) return
+    const body = bodyOf(draft), now = new Date().toISOString()
+    const prev = docs.find((d) => d.id === draft.id)
+    // publishing a version counts as a review of the document
+    const stamp = { status: 'published' as const, publishedAt: now, publishedBy: me, lastReviewedAt: now, lastReviewedBy: me, pending: undefined, updatedAt: now }
+    if (!prev) addBms({ ...body, ...stamp, changeNote: 'Initial release', revisions: [] })
+    else if (prev.status === 'draft') updateBms({ ...prev, ...body, ...stamp, changeNote: 'Initial release', revisions: prev.revisions ?? [] })
+    else updateBms({ ...prev, ...body, ...stamp, reviews: prev.reviews, changeNote: draft.changeNote!.trim(), revisions: [...(prev.revisions ?? []), { ...snapshotOf(prev), archivedAt: now }] })
+    setSelectedId(draft.id); setDraft(null)
+    setNotice(`Published v${body.version} — it is now rolled out. Project managers will be prompted to update.`)
+  }
+  /** Publish what is already saved (a never-published draft, or a saved draft of the next version) */
+  const publishSaved = () => {
+    if (!selected) return
+    const now = new Date().toISOString()
+    const stamp = { status: 'published' as const, publishedAt: now, publishedBy: me, lastReviewedAt: now, lastReviewedBy: me, pending: undefined, updatedAt: now }
+    if (selected.status === 'draft') {
+      updateBms({ ...selected, ...stamp, changeNote: 'Initial release', revisions: selected.revisions ?? [] })
+      setNotice(`Published v${selected.version} — it is now rolled out to the projects.`)
+    } else if (selected.pending) {
+      const { savedAt: _a, savedBy: _b, ...fields } = selected.pending
+      updateBms({ ...selected, ...fields, ...stamp, revisions: [...(selected.revisions ?? []), { ...snapshotOf(selected), archivedAt: now }] })
+      setNotice(`Published v${selected.pending.version} — it is now rolled out. Project managers will be prompted to update.`)
+    }
+  }
+  // ── Review & update ──
+  const recordReview = (outcome: BmsReview['outcome'], comment: string) => {
+    if (!selected) return
+    const now = new Date().toISOString()
+    const entry: BmsReview = { id: `rev-${Date.now()}`, at: now, by: me, version: selected.version, outcome, comment: comment.trim() }
+    updateBms({ ...selected, lastReviewedAt: now, lastReviewedBy: me, reviews: [entry, ...(selected.reviews ?? [])] })
+  }
+  const reviewNoChanges = () => {
+    if (!reviewing || !selected) return
+    recordReview('no-changes', reviewing.comment)
+    const next = new Date(); next.setMonth(next.getMonth() + (selected.reviewIntervalMonths ?? DEFAULT_REVIEW_MONTHS))
+    setReviewing(null); setNotice(`Review recorded — no changes needed. Next review due ${fmtDate(next)}.`)
+  }
+  const reviewStartUpdate = () => {
+    if (!reviewing || !selected) return
+    const comment = reviewing.comment.trim()
+    recordReview('changes-needed', comment)
+    setReviewing(null)
+    startEdit()
+    // carry the reviewer's notes into the change note of the new version
+    setDraft((d) => d && { ...d, changeNote: d.changeNote || comment })
+  }
+
+  // ── Create from an existing document (handy for templates) ──
+  const duplicate = () => {
+    if (!selected || isChecklist) return
+    const now = new Date().toISOString()
+    const copy: BmsDocument = {
+      ...selected, id: `bms-${Date.now()}`, title: `${selected.title} (copy)`, docNumber: '', version: '1.0', status: 'draft',
+      blocks: selected.blocks?.map((b) => ({ ...b, id: newBlockId() })), revisions: [], pending: undefined, reviews: [],
+      lastReviewedAt: undefined, lastReviewedBy: undefined, publishedAt: undefined, publishedBy: undefined,
+      changeNote: 'Initial release', updatedAt: now,
+    }
+    addBms(copy); setSelectedId(copy.id); setDraft(null); setReviewing(null)
+    setNotice('Copied as a new draft. Give it a document number, make your changes, then publish.')
+  }
+
+  const discardPending = () => {
+    if (!selected?.pending || !window.confirm('Discard the saved draft of the next version? The published version is not affected.')) return
+    updateBms({ ...selected, pending: undefined }); setNotice('Draft discarded.')
+  }
+
   const save = () => {
     if (!draft || !canSave) return
     const now = new Date().toISOString()
@@ -275,6 +386,15 @@ export default function BmsPanel() {
         {BMS_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         <option value={CHECKLIST}>Checklist Templates</option>
       </select>
+      {!isChecklist && (
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-slate-500">{docs.filter((d) => d.status === 'draft' || d.pending).length} draft{docs.filter((d) => d.status === 'draft' || d.pending).length === 1 ? '' : 's'}</span>
+          <button onClick={() => setNeedsReview((v) => !v)}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${needsReview ? 'bg-ink text-white' : dueIds.size ? 'bg-amber-100 text-amber-700' : 'bg-slate-800 text-slate-300'}`}>
+            {dueIds.size} due for review
+          </button>
+        </div>
+      )}
     </div>
   )
 
@@ -287,15 +407,23 @@ export default function BmsPanel() {
         <div className="p-3 space-y-2 border-b border-slate-800">
           <div className="flex gap-2">
             <input className={input} placeholder="Search documents…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <button onClick={startNew} className="px-3 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold whitespace-nowrap">+ New</button>
+            {isChecklist
+              ? <button onClick={() => startNew()} className="px-3 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold whitespace-nowrap">+ New</button>
+              : <button onClick={() => startNew('Policy')} className="px-3 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold whitespace-nowrap">+ Document</button>}
+            {!isChecklist && <button onClick={() => startNew('Template')} className="px-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold whitespace-nowrap">+ Template</button>}
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           {visible.length === 0 && <p className="p-4 text-sm text-slate-500">No documents found.</p>}
           {visible.map((d) => (
-            <button key={d.id} onClick={() => { setSelectedId(d.id); setDraft(null) }}
+            <button key={d.id} onClick={() => { setSelectedId(d.id); setDraft(null); setNotice(''); setReviewing(null) }}
               className={`w-full text-left px-4 py-3 border-b border-slate-800 hover:bg-slate-800 ${selectedId === d.id && !draft ? 'bg-slate-800' : ''}`}>
-              <p className="text-sm font-semibold text-ink truncate">{d.title}</p>
+              <p className="text-sm font-semibold text-ink truncate flex items-center gap-2">
+                <span className="truncate">{d.title}</span>
+                {!isChecklist && d.status === 'draft' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">Draft</span>}
+                {!isChecklist && ['overdue', 'due-soon'].includes(reviewState(d)) && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${reviewState(d) === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>{reviewState(d) === 'overdue' ? 'Review overdue' : 'Review due'}</span>}
+                {!isChecklist && d.status !== 'draft' && d.pending && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 flex-shrink-0">Draft v{d.pending.version}</span>}
+              </p>
               <p className="text-xs text-slate-500 mt-0.5">{d.category !== CHECKLIST && `${d.docNumber || 'No number'} · `}v{d.version} · {d.category === CHECKLIST ? `${d.content.split('\n').filter((l) => l.trim()).length} items` : d.category}</p>
             </button>
           ))}
@@ -306,7 +434,7 @@ export default function BmsPanel() {
       <main className="flex-1 overflow-y-auto p-6">
         {draft ? (
           <div className={`${isChecklist ? 'max-w-2xl' : 'max-w-4xl'} space-y-4`}>
-            <h2 className="text-ink font-bold text-lg">{isExisting ? `Edit — new version (current is v${selected?.version})` : isChecklist ? 'New checklist' : 'New document'}</h2>
+            <h2 className="text-ink font-bold text-lg">{publishedExisting ? `Edit — new version (current is v${selected?.version})` : isExisting && !isChecklist ? 'Edit draft' : isChecklist ? 'New checklist' : 'New document'}</h2>
             <div><label className={label}>Title</label><input className={input} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></div>
             <div className={`grid ${isChecklist ? 'grid-cols-2' : 'grid-cols-3'} gap-3`}>
               {!isChecklist && <div><label className={label}>Document no.</label><input className={input} placeholder="BMS-QP-001" value={draft.docNumber} onChange={(e) => setDraft({ ...draft, docNumber: e.target.value })} /></div>}
@@ -314,12 +442,15 @@ export default function BmsPanel() {
                 <select className={input} disabled={isChecklist} value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value as BmsCategory })}>
                   {(isChecklist ? [CHECKLIST] : BMS_CATEGORIES).map((c) => <option key={c}>{c}</option>)}
                 </select></div>
-              <div><label className={label}>{isExisting ? 'New version' : 'Version'}</label><input className={input} value={draft.version} onChange={(e) => setDraft({ ...draft, version: e.target.value })} /></div>
+              <div><label className={label}>{publishedExisting ? 'New version' : 'Version'}</label><input className={input} value={draft.version} onChange={(e) => setDraft({ ...draft, version: e.target.value })} /></div>
             </div>
             <div><label className={label}>Description</label><input className={input} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid ${isChecklist ? 'grid-cols-2' : 'grid-cols-3'} gap-3`}>
               <div><label className={label}>Author</label><input className={input} value={draft.author ?? ''} onChange={(e) => setDraft({ ...draft, author: e.target.value })} /></div>
               <div><label className={label}>Approved by</label><input className={input} value={draft.approvedBy ?? ''} onChange={(e) => setDraft({ ...draft, approvedBy: e.target.value })} /></div>
+              {!isChecklist && <div><label className={label}>Review every (months)</label>
+                <input type="number" min={1} max={60} className={input} value={draft.reviewIntervalMonths ?? DEFAULT_REVIEW_MONTHS}
+                  onChange={(e) => setDraft({ ...draft, reviewIntervalMonths: Math.min(60, Math.max(1, Number(e.target.value) || DEFAULT_REVIEW_MONTHS)) })} /></div>}
             </div>
             {isChecklist ? (
               <div><label className={label}>Checklist items</label>
@@ -339,17 +470,29 @@ export default function BmsPanel() {
                 <input type="file" className="text-sm text-slate-400" onChange={(e) => onFile(e.target.files?.[0])} />
                 {draft.file && <p className="text-xs text-slate-400 mt-1">{draft.file.name}</p>}</div>
             )}
-            {isExisting && (
+            {publishedExisting && (
               <div>
-                <label className={label}>What changed from v{selected?.version}? (required)</label>
+                <label className={label}>What changed from v{selected?.version}? {isChecklist ? '(required)' : '(required to publish)'}</label>
                 <textarea className={`${input} h-20`} placeholder={isChecklist ? 'e.g. Added first aid kit check' : 'e.g. Added section 6 – records retention; updated sign-off roles'} value={draft.changeNote ?? ''} onChange={(e) => setDraft({ ...draft, changeNote: e.target.value })} />
                 {versionClash && <p className="text-xs text-red-400 mt-1">Version number must differ from the current version.</p>}
-                <p className="text-xs text-slate-500 mt-1">Saving archives v{selected?.version} and keeps it in the version history.</p>
+                <p className="text-xs text-slate-500 mt-1">{isChecklist ? `Saving archives v${selected?.version} and keeps it in the version history.` : `Publishing archives v${selected?.version} and keeps it in the version history. Save as a draft to keep working without rolling anything out.`}</p>
               </div>
             )}
-            <div className="flex gap-2 pt-2">
-              <button onClick={save} disabled={!canSave} className="px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-semibold">{isExisting ? 'Save as new version' : 'Save'}</button>
+            <div className="flex gap-2 pt-2 flex-wrap items-center">
+              {isChecklist ? (
+                <button onClick={save} disabled={!canSave} className="px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-semibold">{isExisting ? 'Save as new version' : 'Save'}</button>
+              ) : (
+                <>
+                  <button onClick={saveDraftDoc} disabled={!canDraft} className="px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 text-sm font-semibold">
+                    {publishedExisting ? 'Save draft version' : 'Save draft'}
+                  </button>
+                  <button onClick={publishDoc} disabled={!canSave} className="px-4 py-2 rounded-full bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-semibold">
+                    {publishedExisting ? `Publish v${draft.version}` : 'Publish'}
+                  </button>
+                </>
+              )}
               <button onClick={() => { setDraft(null); setSelectedId(selected?.id ?? null) }} className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-sm font-semibold">Cancel</button>
+              {!isChecklist && <span className="text-xs text-slate-500">Publishing rolls the document out to every project and prompts the project managers.</span>}
             </div>
           </div>
         ) : selected ? (
@@ -357,13 +500,70 @@ export default function BmsPanel() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-ink font-bold text-xl">{selected.title}</h2>
-                <p className="text-xs text-slate-500 mt-1">{selected.category !== CHECKLIST && `${selected.docNumber || 'No number'} · `}v{selected.version} · {selected.category} · Updated {new Date(selected.updatedAt).toLocaleDateString()}</p>
+                <p className="text-xs text-slate-500 mt-1">{selected.category !== CHECKLIST && `${selected.docNumber || 'No number'} · `}v{selected.version} · {selected.category} · Updated {new Date(selected.updatedAt).toLocaleDateString()}
+                  {!isChecklist && selected.status !== 'draft' && selected.publishedBy && ` · Published by ${selected.publishedBy}`}
+                  {!isChecklist && selected.status !== 'draft' && ` · Next review ${fmtDate(nextReviewDue(selected))}`}</p>
               </div>
               <div className="flex gap-2 flex-shrink-0">
-                <button onClick={startEdit} className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold">Edit</button>
+                {!isChecklist && selected.status !== 'draft' && (
+                  <button onClick={() => setReviewing(reviewing ? null : { comment: '' })} className="px-3 py-1.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold">Review & update</button>
+                )}
+                <button onClick={startEdit} className="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold">{!isChecklist && selected.status !== 'draft' ? 'Make changes' : 'Edit'}</button>
+                {!isChecklist && <button onClick={duplicate} title="Create a new draft from this document" className="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold">Duplicate</button>}
                 <button onClick={remove} className="px-3 py-1.5 rounded-lg bg-red-900/40 hover:bg-red-900/60 text-red-300 text-sm font-semibold">Delete</button>
               </div>
             </div>
+            {notice && (
+              <div className="rounded-2xl bg-green-50 border border-green-100 px-4 py-3 text-sm text-green-700 flex items-center gap-3">
+                <span className="flex-1">{notice}</span>
+                <button onClick={() => setNotice('')} className="text-green-700/70 hover:text-green-700">✕</button>
+              </div>
+            )}
+            {!isChecklist && selected.status !== 'draft' && ['overdue', 'due-soon'].includes(reviewState(selected)) && !reviewing && (
+              <div className={`rounded-3xl border px-5 py-3 flex items-center gap-3 flex-wrap ${reviewState(selected) === 'overdue' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'}`}>
+                <p className={`text-sm flex-1 min-w-[220px] ${reviewState(selected) === 'overdue' ? 'text-red-600' : 'text-amber-700'}`}>
+                  <span className="font-semibold">{reviewState(selected) === 'overdue' ? 'Review overdue' : 'Review due soon'}</span> — due {fmtDate(nextReviewDue(selected))}. Check the document is still right, and update it if not.
+                </p>
+                <button onClick={() => setReviewing({ comment: '' })} className="px-4 py-1.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold">Review & update</button>
+              </div>
+            )}
+            {reviewing && !isChecklist && (
+              <div className="rounded-3xl bg-white border border-ink shadow-float px-5 py-4 space-y-3">
+                <div>
+                  <h3 className="text-sm font-bold text-ink">Review & update</h3>
+                  <p className="text-xs text-slate-400">Read through v{selected.version} below. {selected.lastReviewedAt ? `Last reviewed ${fmtDate(new Date(selected.lastReviewedAt))} by ${selected.lastReviewedBy}.` : ''} Then record the outcome.</p>
+                </div>
+                <textarea rows={2} className={`${input} resize-none`} placeholder="Review notes — what you checked, or what needs to change" value={reviewing.comment}
+                  onChange={(e) => setReviewing({ comment: e.target.value })} />
+                <div className="flex gap-2 flex-wrap">
+                  <button onClick={reviewNoChanges} className="px-4 py-2 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold">No changes needed — mark as reviewed</button>
+                  <button onClick={reviewStartUpdate} disabled={!reviewing.comment.trim()} className="px-4 py-2 rounded-full bg-coral hover:bg-coral-dark disabled:opacity-40 text-white text-sm font-semibold">Changes needed — start update</button>
+                  <button onClick={() => setReviewing(null)} className="px-4 py-2 rounded-full bg-slate-800 text-slate-200 text-sm font-semibold">Cancel</button>
+                </div>
+                <p className="text-[11px] text-slate-500">Starting an update opens the editor with your notes as the change note. Nothing is rolled out until you publish.</p>
+              </div>
+            )}
+            {!isChecklist && selected.status === 'draft' && (
+              <div className="rounded-3xl bg-amber-50 border border-amber-100 px-5 py-4 flex items-center gap-4 flex-wrap">
+                <div className="flex-1 min-w-[220px]">
+                  <p className="text-sm font-semibold text-amber-700">Draft — not rolled out</p>
+                  <p className="text-xs text-amber-700/80">Projects can’t see this document yet. Publish it to roll it out to every project.</p>
+                </div>
+                <button onClick={publishSaved} className="px-5 py-2 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">Publish v{selected.version}</button>
+              </div>
+            )}
+            {!isChecklist && selected.status !== 'draft' && selected.pending && (
+              <div className="rounded-3xl bg-amber-50 border border-amber-100 px-5 py-4 space-y-2">
+                <p className="text-sm font-semibold text-amber-700">Draft v{selected.pending.version} saved — not rolled out</p>
+                <p className="text-xs text-amber-700/80">Saved by {selected.pending.savedBy} on {new Date(selected.pending.savedAt).toLocaleString()}. Projects are still on v{selected.version} until you publish.</p>
+                {selected.pending.changeNote ? <p className="text-xs text-amber-700">What changed: {selected.pending.changeNote}</p> : <p className="text-xs text-amber-700">Add a change note (Edit draft) before publishing.</p>}
+                <div className="flex gap-2 flex-wrap pt-1">
+                  <button onClick={publishSaved} disabled={!selected.pending.changeNote.trim()} className="px-5 py-2 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">Publish v{selected.pending.version}</button>
+                  <button onClick={startEdit} className="px-4 py-2 rounded-full bg-white border border-amber-100 hover:bg-amber-100 text-amber-700 text-sm font-semibold">Edit draft</button>
+                  <button onClick={discardPending} className="px-4 py-2 rounded-full bg-white border border-amber-100 hover:bg-amber-100 text-amber-700 text-sm font-semibold">Discard draft</button>
+                </div>
+              </div>
+            )}
             {selected.description && <p className="text-sm text-slate-300">{selected.description}</p>}
             <div className="flex gap-6 text-sm">
               <p><span className="text-slate-500">Author: </span><span className="text-slate-200">{selected.author || '—'}</span></p>
@@ -379,6 +579,25 @@ export default function BmsPanel() {
               <a href={selected.file.dataUrl} download={selected.file.name} className="inline-block text-sm text-purple-300 hover:text-purple-200 underline">Download {selected.file.name}</a>
             )}
             <VersionHistory doc={selected} />
+            {!isChecklist && selected.status !== 'draft' && (
+              <section>
+                <button onClick={() => setShowReviews((v) => !v)} className="text-sm font-bold text-ink">{showReviews ? '▾' : '▸'} Review history ({selected.reviews?.length ?? 0})</button>
+                {showReviews && (
+                  <div className="mt-2 rounded-2xl border border-slate-800 divide-y divide-slate-800 bg-white">
+                    {(selected.reviews?.length ?? 0) === 0 && <p className="px-4 py-3 text-xs text-slate-500">No reviews recorded yet. Publishing a version also counts as a review.</p>}
+                    {(selected.reviews ?? []).map((r) => (
+                      <div key={r.id} className="px-4 py-3 text-xs">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className={`font-semibold ${r.outcome === 'no-changes' ? 'text-green-700' : 'text-coral-dark'}`}>{r.outcome === 'no-changes' ? 'Reviewed — no changes needed' : 'Reviewed — changes needed'}</span>
+                          <span className="text-slate-500">v{r.version} · {r.by} · {new Date(r.at).toLocaleString()}</span>
+                        </div>
+                        {r.comment && <p className="text-slate-400 mt-0.5">{r.comment}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">

@@ -38,7 +38,7 @@ export default function AddChecklistModal({ templates, projectId, onAdd, onClose
         {/* Template list */}
         <div className="px-6 py-4 space-y-2 max-h-52 overflow-y-auto">
           {templates.length === 0 ? (
-            <p className="text-slate-400 text-sm text-center py-8">No templates yet. Create some in Admin.</p>
+            <p className="text-slate-400 text-sm text-center py-8">No templates yet. The BMS team can create some under BMS → Checklist Templates.</p>
           ) : (
             templates.map((t) => (
               <button

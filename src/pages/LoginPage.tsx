@@ -2,12 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import Logo from '../components/Logo'
-
-const ROLE_BADGE: Record<string, string> = {
-  admin:    'bg-ink text-white',
-  manager:  'bg-coral-tint text-coral-dark',
-  engineer: 'bg-green-100 text-green-700',
-}
+import { isCentral, roleChip, ROLE_LABEL } from '../access'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -20,7 +15,7 @@ export default function LoginPage() {
     const user = members.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
     if (user) {
       setCurrentUser(user)
-      if (user.role === 'admin') {
+      if (isCentral(user)) {
         // Admins see everything — no project context needed
         navigate('/home')
       } else if (user.projectIds.length === 1) {
@@ -35,7 +30,7 @@ export default function LoginPage() {
         navigate('/home')
       }
     } else {
-      setError('Email not found. Select a test account below or contact your admin.')
+      setError('Email not found. Select a test account below or contact IT.')
     }
   }
 
@@ -95,8 +90,8 @@ export default function LoginPage() {
                     <span className="text-sm font-medium text-slate-200 group-hover:text-ink">{u.name}</span>
                     <span className="text-xs text-slate-500 block">{u.email}</span>
                   </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_BADGE[u.role] ?? 'bg-slate-800 text-slate-400'}`}>
-                    {u.role}
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${roleChip(u.role)}`}>
+                    {ROLE_LABEL[u.role]}
                   </span>
                 </button>
               ))}
