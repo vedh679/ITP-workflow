@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { CORE_CATEGORIES, publishedDocs, pluralCategory, changesSince, docStatus, pendingDocs, recordFor, versionsOf, type DocStatus } from '../projectDocs'
@@ -58,11 +58,11 @@ export default function DocumentsPage() {
   const [globalQuery, setGlobalQuery] = useState('')  // searches every core document
   const [searchOpen, setSearchOpen] = useState(false)
 
-  if (!currentUser) { navigate('/'); return null }
+  if (!currentUser) return <Navigate to="/" replace />   // signed out
   const bmsDocuments = publishedDocs(allBmsDocuments)   // drafts are only visible to the BMS team
 
   const manager = isManager(currentUser)
-  const isAdmin = isCentral(currentUser)   // IT and the BMS team work across all projects
+  const isAdmin = isCentral(currentUser)   // IT works across all projects
   const projectId = isAdmin ? adminProjectId : (currentProjectId ?? '')
   const project = projects.find((p) => p.id === projectId)
 
@@ -113,10 +113,10 @@ export default function DocumentsPage() {
               All categories
             </button>
           )}
-          <h1 className="text-4xl font-normal tracking-tight text-ink">{category ? pluralCategory(category) : 'BMS Core Documents'}</h1>
+          <h1 className="text-4xl font-normal tracking-tight text-ink">{category ? pluralCategory(category) : 'Document Register'}</h1>
           <p className="text-slate-400 mt-1">
-            {category ? CORE_CATEGORIES.find((c) => c.key === category)?.blurb : 'Core procedures, policies and forms'}
-            {project ? <> · held by <span className="text-slate-200 font-medium">{project.name}</span></> : ''}
+            {category ? CORE_CATEGORIES.find((c) => c.key === category)?.blurb : 'Where the team keeps its up-to-date documents'}
+            {project ? <> · <span className="text-slate-200 font-medium">{project.name}</span></> : ''}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -129,7 +129,7 @@ export default function DocumentsPage() {
               onChange={(e) => { setGlobalQuery(e.target.value); setSearchOpen(true) }}
               onFocus={() => setSearchOpen(true)}
               onKeyDown={(e) => { if (e.key === 'Escape') setSearchOpen(false); if (e.key === 'Enter' && results[0]) openResult(results[0]) }}
-              placeholder="Search all core documents…"
+              placeholder="Search the register…"
               className="w-full pl-11 pr-4 py-2.5 rounded-full bg-slate-800 text-sm text-ink placeholder-slate-500 focus:outline-none focus:bg-white focus:ring-1 focus:ring-ink" />
             {searchOpen && globalQuery.trim() && (
               <>
@@ -170,12 +170,12 @@ export default function DocumentsPage() {
           <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">!</div>
           <div className="flex-1 min-w-[220px]">
             <p className="text-sm font-semibold text-amber-700">
-              {manager ? 'Your project is behind the BMS' : 'The project is behind the BMS'}
+              {manager ? 'Your register is out of date' : 'The register is out of date'}
             </p>
             <p className="text-xs text-amber-700/80">
-              {pending.length} document{pending.length === 1 ? ' has' : 's have'} a newer version or {pending.length === 1 ? 'is' : 'are'} not yet added:{' '}
+              {pending.length} document{pending.length === 1 ? ' has' : 's have'} a newer version in the BMS core library or {pending.length === 1 ? 'is' : 'are'} not yet in the register:{' '}
               {pending.map((p) => p.doc.title).join(', ')}.
-              {manager ? ' Review each one and update the project to the latest version.' : ' The project manager has been prompted to update.'}
+              {manager ? ' Review each one and update the register to the latest version.' : ' The project manager has been prompted to update.'}
             </p>
           </div>
           {manager && (

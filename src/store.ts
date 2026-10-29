@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { startRun, syncRun } from './workflow'
 import { blocksToText, field, heading, para } from './docBlocks'
-import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow, ProjectDocument, ProjectOrgEntry, TimesheetEntry, TimesheetSubmission } from './types'
+import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow, ProjectDocument, ProjectOrgEntry, TimesheetDay, TimesheetSession, TimesheetSubmission } from './types'
 
 interface AppState {
   currentUser: AppUser | null
@@ -15,7 +15,7 @@ interface AppState {
   workflows: Workflow[]
   projectDocuments: ProjectDocument[]
   projectOrg: ProjectOrgEntry[]
-  timesheetEntries: TimesheetEntry[]
+  timesheetDays: TimesheetDay[]
   timesheetSubmissions: TimesheetSubmission[]
 
   setCurrentUser: (user: AppUser | null) => void
@@ -54,9 +54,7 @@ interface AppState {
   // Project documents: a project takes up (or updates to) a version of a BMS document
   adoptProjectDocument: (projectId: string, bmsDocumentId: string, version: string, by: string) => void
   // Timesheets
-  addTimesheetEntry: (entry: TimesheetEntry) => void
-  updateTimesheetEntry: (entry: TimesheetEntry) => void
-  deleteTimesheetEntry: (id: string) => void
+  setTimesheetSession: (userId: string, date: string, index: 0 | 1, patch: Partial<TimesheetSession>) => void
   submitTimesheetWeek: (userId: string, weekStart: string) => void
   reopenTimesheetWeek: (userId: string, weekStart: string) => void
 
@@ -66,14 +64,13 @@ interface AppState {
 
 // ── Sample projects ───────────────────────────────────────────────
 const SAMPLE_PROJECTS: Project[] = [
-  { id: 'p1', name: 'Building A Renovation', description: 'Full structural and services renovation of Building A' },
-  { id: 'p2', name: 'Substation Upgrade', description: 'Electrical substation upgrade and commissioning' },
+  { id: 'p1', code: 'BLD-A', name: 'Building A Renovation', description: 'Full structural and services renovation of Building A' },
+  { id: 'p2', code: 'SUB-UP', name: 'Substation Upgrade', description: 'Electrical substation upgrade and commissioning' },
 ]
 
 // ── Sample members ────────────────────────────────────────────────
 const SAMPLE_MEMBERS: AppUser[] = [
   { id: 'u1', email: 'it@itp.com',        name: 'IT Admin',        role: 'it',       team: 'Executive',    projectIds: ['p1', 'p2'] },
-  { id: 'u6', email: 'bms@itp.com',       name: 'BMS Lead',        role: 'bms',      team: 'Quality',      projectIds: [] },
   { id: 'u2', email: 'manager@itp.com',   name: 'Project Manager', role: 'manager',  team: 'Manager',  projectIds: ['p1', 'p2'] },
   { id: 'u3', email: 'vedh@itp.com',      name: 'Vedh',            role: 'manager',  team: 'Manager',  projectIds: ['p1'] },
   { id: 'u4', email: 'inspector@itp.com', name: 'Site Inspector',  role: 'engineer', team: 'Quality', projectIds: ['p1'] },
@@ -253,7 +250,7 @@ export const useAppStore = create<AppState>()(
       workflows: SAMPLE_WORKFLOWS,
       projectDocuments: SAMPLE_PROJECT_DOCUMENTS,
       projectOrg: SAMPLE_PROJECT_ORG,
-      timesheetEntries: [],
+      timesheetDays: [],
       timesheetSubmissions: [],
 
       setCurrentUser: (user) => set({ currentUser: user, currentProjectId: null }),
@@ -290,9 +287,16 @@ export const useAppStore = create<AppState>()(
       updateWorkflow: (w) => set((s) => ({ workflows: s.workflows.map((x) => x.id === w.id ? w : x) })),
       deleteWorkflow: (id) => set((s) => ({ workflows: s.workflows.filter((x) => x.id !== id) })),
 
-      addTimesheetEntry: (e) => set((s) => ({ timesheetEntries: [...s.timesheetEntries, e] })),
-      updateTimesheetEntry: (e) => set((s) => ({ timesheetEntries: s.timesheetEntries.map((x) => x.id === e.id ? e : x) })),
-      deleteTimesheetEntry: (id) => set((s) => ({ timesheetEntries: s.timesheetEntries.filter((x) => x.id !== id) })),
+      // Edit one cell group of a day; a day with nothing in it is removed
+      setTimesheetSession: (userId, date, index, patch) => set((s) => {
+        const blank = (): TimesheetSession => ({ in: '', out: '', code: '' })
+        const existing = s.timesheetDays.find((d) => d.userId === userId && d.date === date)
+        const sessions: [TimesheetSession, TimesheetSession] = existing ? [{ ...existing.sessions[0] }, { ...existing.sessions[1] }] : [blank(), blank()]
+        sessions[index] = { ...sessions[index], ...patch }
+        const empty = sessions.every((x) => !x.in && !x.out && !x.code)
+        const others = s.timesheetDays.filter((d) => !(d.userId === userId && d.date === date))
+        return { timesheetDays: empty ? others : [...others, { userId, date, sessions }] }
+      }),
       submitTimesheetWeek: (userId, weekStart) => set((s) => ({
         timesheetSubmissions: [...s.timesheetSubmissions.filter((x) => !(x.userId === userId && x.weekStart === weekStart)),
           { userId, weekStart, submittedAt: new Date().toISOString() }],
@@ -327,14 +331,39 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'itp-store',
-      // v2: the old "admin" access role became "IT" (the new "BMS team" role sits beside it)
-      version: 2,
+      // v2: the old "admin" access role became "IT"
+      // v3: the short-lived "BMS team" role was removed (IT maintains the BMS core library)
+      // v4: the timesheet became a table with two sessions (IN / OUT / project code) per day
+      version: 4,
       migrate: (persisted, version) => {
-        const state = persisted as { members?: { role: string }[]; currentUser?: { role: string } | null }
+        const state = persisted as { members?: { id: string; role: string }[]; currentUser?: { role: string } | null; projectOrg?: { memberId: string }[] }
         if (version < 2) {
           const fix = <T extends { role: string }>(u: T): T => (u.role === 'admin' ? { ...u, role: 'it' } : u)
           if (state.members) state.members = state.members.map(fix)
           if (state.currentUser) state.currentUser = fix(state.currentUser)
+        }
+        if (version < 3) {
+          // remove BMS team members, anything that referred to them, and sign them out
+          const gone = new Set((state.members ?? []).filter((m) => m.role === 'bms').map((m) => m.id))
+          if (state.members) state.members = state.members.filter((m) => m.role !== 'bms')
+          if (state.projectOrg) state.projectOrg = state.projectOrg.filter((e) => !gone.has(e.memberId))
+          if (state.currentUser?.role === 'bms') state.currentUser = null
+        }
+        if (version < 4) {
+          const legacy = (state as { timesheetEntries?: { userId: string; date: string; start: string; end: string; projectId: string }[]; projects?: { id: string; name: string; code?: string }[]; timesheetDays?: unknown[] })
+          const codeOf = (id: string) => {
+            const p = legacy.projects?.find((x) => x.id === id)
+            return p?.code ?? (p ? p.name.split(/\s+/).map((w) => w[0]).join('').toUpperCase() : '')
+          }
+          // the first two entries of each day become the two sessions; the old list is left untouched
+          const byDay = new Map<string, NonNullable<typeof legacy.timesheetEntries>>()
+          for (const e of legacy.timesheetEntries ?? []) byDay.set(`${e.userId}|${e.date}`, [...(byDay.get(`${e.userId}|${e.date}`) ?? []), e])
+          legacy.timesheetDays = [...byDay.values()].map((list) => {
+            const sorted = [...list].sort((a, b) => a.start.localeCompare(b.start))
+            const sess = (e?: (typeof sorted)[number]) => ({ in: e?.start ?? '', out: e?.end ?? '', code: e ? codeOf(e.projectId) : '' })
+            return { userId: sorted[0].userId, date: sorted[0].date, sessions: [sess(sorted[0]), sess(sorted[1])] }
+          })
+          if (legacy.projects) legacy.projects = legacy.projects.map((p) => ({ ...p, code: p.code ?? codeOf(p.id) }))
         }
         return state as never
       },

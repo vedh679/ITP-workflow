@@ -10,7 +10,7 @@ import NewTaskModal from '../components/NewTaskModal'
 import AddInspectionModal from '../components/AddInspectionModal'
 import InspectionDetail from '../components/InspectionDetail'
 import AppHeader from '../components/AppHeader'
-import { canAccessTasks, canManageProject, isCentral } from '../access'
+import { canManageProject, isCentral } from '../access'
 import TaskWorkflowBanner from '../components/TaskWorkflowBanner'
 
 function statusBadge(status: Task['status']) {
@@ -59,8 +59,7 @@ export default function TasksPage() {
     setOpenInspectionId(null)
   }, [currentProjectId])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!currentUser) { navigate('/'); return null }
-  if (!canAccessTasks(currentUser)) return <Navigate to="/home" replace />   // the BMS team has no access to tasks
+  if (!currentUser) return <Navigate to="/" replace />   // signed out
 
   const canEdit = canManageProject(currentUser)
 

@@ -5,7 +5,7 @@ import BmsPanel from './BmsPanel'
 import WorkflowPanel from './WorkflowPanel'
 import type { AppUser, Project, UserRole } from '../types'
 import { TEAM_OPTIONS } from '../teams'
-import { canAdministerSystem, canManageBms, isIT, roleChip, roleChipSelected, ROLE_DESCRIPTION, ROLE_LABEL } from '../access'
+import { canAdministerSystem, roleChip, roleChipSelected, ROLE_DESCRIPTION, ROLE_LABEL } from '../access'
 
 // ─────────────────────────────────────────────────────────────────
 // Helpers
@@ -14,17 +14,16 @@ type Tab = 'members' | 'projects' | 'bms' | 'workflow'
 
 const ROLE_BADGE: Record<UserRole, string> = {
   it:       'bg-ink text-white border-ink',
-  bms:      'bg-amber-100 text-amber-700 border-amber-500/30',
   manager:  'bg-coral-tint text-coral-dark border-coral/30',
   engineer: 'bg-green-100 text-green-700 border-green-500/30',
 }
-const ROLE_OPTIONS: UserRole[] = ['it', 'bms', 'manager', 'engineer']
+const ROLE_OPTIONS: UserRole[] = ['it', 'manager', 'engineer']
 
 function newMember(): AppUser {
   return { id: `u-${Date.now()}`, email: '', name: '', role: 'engineer', projectIds: [] }
 }
 function newProject(): Project {
-  return { id: `p-${Date.now()}`, name: '', description: '' }
+  return { id: `p-${Date.now()}`, name: '', code: '', description: '' }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -118,7 +117,7 @@ function MembersPanel() {
               {/* Role */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">Role *</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {ROLE_OPTIONS.map((role) => (
                     <button key={role} type="button" onClick={() => setEditing({ ...editing, role })}
                       className={`py-2 rounded-xl border text-sm font-semibold transition-all ${editing.role === role ? roleChipSelected(role) : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
@@ -307,6 +306,12 @@ function ProjectsPanel() {
                   className="w-full bg-slate-800 text-slate-100 placeholder-slate-500 rounded-xl px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm transition-colors" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Project code</label>
+                <input type="text" value={editing.code ?? ''} onChange={(e) => setEditing({ ...editing, code: e.target.value.toUpperCase() })} placeholder="e.g. BLD-A"
+                  className="w-full bg-slate-800 text-slate-100 placeholder-slate-500 rounded-xl px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm transition-colors font-mono" />
+                <p className="text-xs text-slate-500 mt-1">Short code people type on their timesheet to log time against this project.</p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Description</label>
                 <textarea value={editing.description} onChange={(e) => setEditing({ ...editing, description: e.target.value })} placeholder="Brief description of the project" rows={3}
                   className="w-full bg-slate-800 text-slate-100 placeholder-slate-500 rounded-xl px-4 py-2.5 border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm transition-colors resize-none" />
@@ -318,7 +323,7 @@ function ProjectsPanel() {
           <div className="max-w-xl">
             <div className="flex items-start justify-between mb-5">
               <div>
-                <h3 className="text-xl font-bold text-ink">{selected.name}</h3>
+                <h3 className="text-xl font-bold text-ink flex items-center gap-2">{selected.name}{selected.code && <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">{selected.code}</span>}</h3>
                 {selected.description && <p className="text-slate-400 text-sm mt-1">{selected.description}</p>}
               </div>
               <div className="flex gap-2">
@@ -379,18 +384,15 @@ export default function AdminPage() {
   const currentUser = useAppStore((s) => s.currentUser)
   const [tab, setTab] = useState<Tab>('bms')
 
-  // IT and the BMS team only; anyone else is sent home
-  if (!currentUser || !canManageBms(currentUser)) return <Navigate to={currentUser ? '/home' : '/'} replace />
+  // IT only; anyone else is sent home
+  if (!currentUser || !canAdministerSystem(currentUser)) return <Navigate to={currentUser ? '/home' : '/'} replace />
 
-  // IT sees everything; the BMS team's workspace is the BMS only
-  const TABS: { key: Tab; label: string }[] = canAdministerSystem(currentUser)
-    ? [
-        { key: 'projects', label: 'Projects' },
-        { key: 'members',  label: 'Members' },
-        { key: 'bms',      label: 'BMS' },
-        { key: 'workflow', label: 'Workflow' },
-      ]
-    : [{ key: 'bms', label: 'BMS' }]
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'projects', label: 'Projects' },
+    { key: 'members',  label: 'Members' },
+    { key: 'bms',      label: 'BMS Core Library' },
+    { key: 'workflow', label: 'Workflow' },
+  ]
 
   return (
     <div className="flex h-full bg-white overflow-hidden flex-col">
@@ -401,8 +403,8 @@ export default function AdminPage() {
             className="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink transition-colors flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 19l-7-7 7-7" /></svg>
           </button>
-          <h1 className="text-3xl font-normal tracking-tight text-ink">{isIT(currentUser) ? 'IT' : 'BMS'}</h1>
-          <span className="hidden xl:inline text-xs font-semibold bg-ink text-white px-3 py-1 rounded-full whitespace-nowrap">{isIT(currentUser) ? 'IT access' : 'BMS team access'}</span>
+          <h1 className="text-3xl font-normal tracking-tight text-ink">IT</h1>
+          <span className="hidden xl:inline text-xs font-semibold bg-ink text-white px-3 py-1 rounded-full whitespace-nowrap">IT access</span>
         </div>
 
         {/* Centred on the window */}

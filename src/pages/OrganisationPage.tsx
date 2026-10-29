@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { isManager } from '../workflow'
-import { canAccessTasks, isCentral, roleChip, ROLE_LABEL, ROLE_ORDER } from '../access'
+import { isCentral, roleChip, ROLE_LABEL, ROLE_ORDER } from '../access'
 import type { AppUser, ProjectOrgEntry } from '../types'
 import { TEAM_OPTIONS } from '../teams'
 
@@ -14,7 +14,7 @@ interface OrgNode { member: AppUser; title: string; reportsToId: string | null; 
 /** Where a member sits when nobody has set it: admins on top, managers under an admin, engineers under a manager */
 function defaultParent(m: AppUser, team: AppUser[]): string | null {
   if (m.role === 'it') return null
-  if (m.role === 'bms' || m.role === 'manager') return team.find((t) => t.role === 'it')?.id ?? null
+  if (m.role === 'manager') return team.find((t) => t.role === 'it')?.id ?? null
   return (team.find((t) => t.role === 'manager' && t.id !== m.id) ?? team.find((t) => t.role === 'it'))?.id ?? null
 }
 
@@ -72,7 +72,7 @@ export default function OrganisationPage() {
   const entries = useMemo(() => projectOrg.filter((e) => e.projectId === projectId), [projectOrg, projectId])
   const { roots, parentOf } = useMemo(() => buildTree(team, entries), [team, entries])
 
-  if (!currentUser) { navigate('/'); return null }
+  if (!currentUser) return <Navigate to="/" replace />   // signed out
   const canEdit = isManager(currentUser)
 
   const taskCount = (m: AppUser) => tasks.filter((t) => t.projectId === projectId && t.assignedTo === m.email && t.status !== 'completed').length
@@ -95,7 +95,7 @@ export default function OrganisationPage() {
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleChip(m.role)}`}>{ROLE_LABEL[m.role]}</span>
           {m.id === currentUser.id && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">You</span>}
           {m.team && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">{m.team}</span>}
-          {canAccessTasks(currentUser) && <span className="text-[11px] text-slate-500">{open} open task{open === 1 ? '' : 's'}</span>}
+          <span className="text-[11px] text-slate-500">{open} open task{open === 1 ? '' : 's'}</span>
           {n.children.length > 0 && <span className="text-[11px] text-slate-500">· {n.children.length} report{n.children.length === 1 ? '' : 's'}</span>}
         </div>
         <p className="text-[11px] text-slate-500 mt-1.5 truncate">{m.email}</p>
@@ -149,8 +149,8 @@ export default function OrganisationPage() {
       </div>
 
       {/* Team summary */}
-      <div className="px-10 pb-4 grid grid-cols-2 lg:grid-cols-5 gap-4 flex-shrink-0">
-        {[['Team size', team.length], ['IT', count('it')], ['BMS team', count('bms')], ['Managers', count('manager')], ['Engineers', count('engineer')]].map(([label, value]) => (
+      <div className="px-10 pb-4 grid grid-cols-2 lg:grid-cols-4 gap-4 flex-shrink-0">
+        {[['Team size', team.length], ['IT', count('it')], ['Managers', count('manager')], ['Engineers', count('engineer')]].map(([label, value]) => (
           <div key={label as string} className="bg-slate-900 border border-slate-800 rounded-3xl px-5 py-4">
             <p className="text-sm text-slate-400">{label}</p>
             <p className="text-3xl font-bold tracking-tight text-ink mt-1">{value}</p>

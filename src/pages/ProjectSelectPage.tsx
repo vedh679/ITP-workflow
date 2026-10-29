@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import Logo from '../components/Logo'
 
@@ -6,7 +6,7 @@ export default function ProjectSelectPage() {
   const navigate = useNavigate()
   const { currentUser, projects, setCurrentProjectId, setCurrentUser } = useAppStore()
 
-  if (!currentUser) { navigate('/'); return null }
+  if (!currentUser) return <Navigate to="/" replace />   // signed out
 
   // Only non-admin users with multiple projects should land here
   const assignedProjects = projects.filter((p) => currentUser.projectIds.includes(p.id))

@@ -1,123 +1,102 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
-import { canAccessTasks, isCentral } from '../access'
-import { addDays, dayLabel, entryHours, fmtHours, rangeLabel, toISO, weekDays, weekStartOf } from '../timesheet'
-import type { TimesheetEntry } from '../types'
+import { isCentral } from '../access'
+import { addDays, fmtHours, fromISO, projectCodeOf, rangeLabel, sessionHours, sessionProblem, toISO, weekDays, weekStartOf } from '../timesheet'
+import type { TimesheetSession } from '../types'
 
-// A personal timesheet: log work times by day, see the week's totals, then submit the week.
-const input = 'w-full bg-white border border-slate-700 rounded-2xl px-3 py-2.5 text-sm text-ink placeholder-slate-500 focus:outline-none focus:border-ink'
-const label = 'block text-xs font-semibold text-slate-400 mb-1'
-
-function EntryModal({ initial, onSave, onClose }: { initial: TimesheetEntry; onSave: (e: TimesheetEntry) => void; onClose: () => void }) {
-  const { currentUser, projects, tasks } = useAppStore()
-  const myProjects = isCentral(currentUser) ? projects : projects.filter((p) => currentUser?.projectIds.includes(p.id))
-  const [e, setE] = useState<TimesheetEntry>(initial)
-  const projectTasks = canAccessTasks(currentUser) ? tasks.filter((t) => t.projectId === e.projectId) : []   // the BMS team can't see tasks
-  const hours = entryHours(e)
-  const error = !e.projectId ? 'Choose a project.' : !e.start || !e.end ? 'Enter a start and end time.'
-    : hours <= 0 ? 'End time must be after the start time (and longer than the break).' : ''
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onMouseDown={(ev) => { if (ev.target === ev.currentTarget) onClose() }}>
-      <div className="bg-white border border-slate-700 rounded-3xl shadow-float w-full max-w-lg">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-ink">{initial.description || initial.start ? 'Edit time entry' : 'Log time'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-ink text-xl leading-none">✕</button>
-        </div>
-        <div className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div><label className={label}>Date</label><input type="date" className={input} value={e.date} onChange={(ev) => setE({ ...e, date: ev.target.value })} /></div>
-            <div><label className={label}>Project</label>
-              <select className={input} value={e.projectId} onChange={(ev) => setE({ ...e, projectId: ev.target.value, taskId: undefined })}>
-                <option value="">Select…</option>
-                {myProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select></div>
-          </div>
-          {canAccessTasks(currentUser) && (
-          <div><label className={label}>Task (optional)</label>
-            <select className={input} value={e.taskId ?? ''} disabled={!e.projectId} onChange={(ev) => setE({ ...e, taskId: ev.target.value || undefined })}>
-              <option value="">General project work</option>
-              {projectTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select></div>
-          )}
-          <div className="grid grid-cols-3 gap-3">
-            <div><label className={label}>Start</label><input type="time" className={input} value={e.start} onChange={(ev) => setE({ ...e, start: ev.target.value })} /></div>
-            <div><label className={label}>End</label><input type="time" className={input} value={e.end} onChange={(ev) => setE({ ...e, end: ev.target.value })} /></div>
-            <div><label className={label}>Break (min)</label><input type="number" min={0} step={5} className={input} value={e.breakMins}
-              onChange={(ev) => setE({ ...e, breakMins: Math.max(0, Number(ev.target.value) || 0) })} /></div>
-          </div>
-          <div><label className={label}>What did you work on?</label>
-            <textarea rows={2} className={`${input} resize-none`} value={e.description} placeholder="e.g. Level 3 slab inspection and sign-off"
-              onChange={(ev) => setE({ ...e, description: ev.target.value })} /></div>
-          <p className="text-sm text-slate-400">Total: <span className="font-semibold text-ink">{fmtHours(hours)}</span></p>
-          {error && e.start && e.end && <p className="text-xs text-red-600">{error}</p>}
-        </div>
-        <div className="flex gap-3 px-6 py-5 border-t border-slate-800">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">Cancel</button>
-          <button onClick={() => onSave(e)} disabled={!!error}
-            className="flex-1 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">Save entry</button>
-        </div>
-      </div>
-    </div>
-  )
-}
+// A weekly timesheet laid out as a table: one row per day, two halves per day, and in each half
+// the IN time, OUT time and project code. Cells are filled in directly and save as you type.
+const BLANK: TimesheetSession = { in: '', out: '', code: '' }
 
 export default function TimesheetPage() {
-  const navigate = useNavigate()
-  const { currentUser, currentProjectId, projects, tasks, timesheetEntries, timesheetSubmissions,
-    addTimesheetEntry, updateTimesheetEntry, deleteTimesheetEntry, submitTimesheetWeek, reopenTimesheetWeek } = useAppStore()
+  const { currentUser, projects, timesheetDays, timesheetSubmissions, setTimesheetSession, submitTimesheetWeek, reopenTimesheetWeek } = useAppStore()
   const today = toISO(new Date())
   const [weekStart, setWeekStart] = useState(weekStartOf(today))
-  const [editing, setEditing] = useState<TimesheetEntry | null>(null)
 
-  if (!currentUser) { navigate('/'); return null }
+  if (!currentUser) return <Navigate to="/" replace />   // signed out
+
+  // Projects this person can log time against, and the codes that go with them
+  const myProjects = isCentral(currentUser) ? projects : projects.filter((p) => currentUser.projectIds.includes(p.id))
+  const myCodes = myProjects.map(projectCodeOf)
 
   const days = weekDays(weekStart)
-  const mine = timesheetEntries.filter((e) => e.userId === currentUser.id && e.date >= days[0] && e.date <= days[6])
-  const byDay = (d: string) => mine.filter((e) => e.date === d).sort((a, b) => a.start.localeCompare(b.start))
-  const dayHours = (d: string) => byDay(d).reduce((n, e) => n + entryHours(e), 0)
+  const dayOf = (date: string) => timesheetDays.find((d) => d.userId === currentUser.id && d.date === date)
+  const sessionsOf = (date: string): [TimesheetSession, TimesheetSession] => dayOf(date)?.sessions ?? [BLANK, BLANK]
+  const dayHours = (date: string) => sessionsOf(date).reduce((n, s) => n + sessionHours(s), 0)
+  const problemsOf = (date: string) => sessionsOf(date).map((s) => sessionProblem(s, myCodes))
+
   const weekHours = days.reduce((n, d) => n + dayHours(d), 0)
   const daysWorked = days.filter((d) => dayHours(d) > 0).length
-  const projectIds = [...new Set(mine.map((e) => e.projectId))]
+  const anyProblem = days.some((d) => problemsOf(d).some(Boolean))
+
+  // hours per project code this week
+  const byCode = new Map<string, number>()
+  for (const d of days) for (const s of sessionsOf(d)) {
+    const h = sessionHours(s)
+    const code = s.code.trim().toUpperCase()
+    if (h > 0 && code) byCode.set(code, (byCode.get(code) ?? 0) + h)
+  }
+
   const submission = timesheetSubmissions.find((s) => s.userId === currentUser.id && s.weekStart === weekStart)
   const locked = !!submission
   const isThisWeek = weekStart === weekStartOf(today)
 
-  const projectName = (id: string) => projects.find((p) => p.id === id)?.name ?? 'Unknown project'
-  const taskName = (id?: string) => tasks.find((t) => t.id === id)?.name
-
-  const blank = (date: string): TimesheetEntry => ({
-    id: `ts-${Date.now()}`, userId: currentUser.id, date, projectId: currentProjectId ?? (currentUser.projectIds.length === 1 ? currentUser.projectIds[0] : ''),
-    start: '08:00', end: '16:30', breakMins: 30, description: '',
-  })
-  const save = (e: TimesheetEntry) => {
-    if (timesheetEntries.some((x) => x.id === e.id)) updateTimesheetEntry(e); else addTimesheetEntry(e)
-    setEditing(null)
+  const set = (date: string, index: 0 | 1, patch: Partial<TimesheetSession>) => setTimesheetSession(currentUser.id, date, index, patch)
+  const clearDay = (date: string) => { set(date, 0, { ...BLANK }); set(date, 1, { ...BLANK }) }
+  const copyFromAbove = (date: string) => {
+    const above = sessionsOf(addDays(date, -1))
+    set(date, 0, { ...above[0] }); set(date, 1, { ...above[1] })
   }
-  const remove = (e: TimesheetEntry) => { if (window.confirm('Delete this time entry?')) deleteTimesheetEntry(e.id) }
 
-  const icon = 'w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink flex items-center justify-center transition-colors'
+  const cell = 'w-full bg-transparent px-2 py-2.5 text-sm text-ink text-center focus:outline-none focus:bg-white focus:ring-2 focus:ring-inset focus:ring-ink disabled:opacity-60 disabled:cursor-not-allowed'
+  const iconBtn = 'w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink flex items-center justify-center transition-colors'
+  const th = 'px-2 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-400 border-b border-slate-800'
+
+  // the three cells of one half of a day: IN, OUT, project code
+  const sessionCells = (date: string, index: 0 | 1, problem: string) => {
+    const s = sessionsOf(date)[index]
+    const flagTimes = ['Enter both IN and OUT', 'OUT must be after IN'].includes(problem)
+    const bad = (field: 'in' | 'out' | 'code') => {
+      if (!problem) return ''
+      if (field === 'code') return ['Enter a project code', 'Unknown project code'].includes(problem) ? 'bg-red-50' : ''
+      if (!flagTimes) return ''
+      if (problem === 'OUT must be after IN') return 'bg-red-50'
+      return (field === 'in' ? !s.in : !s.out) ? 'bg-red-50' : ''
+    }
+    return (
+      <>
+        <td className={`${index === 1 ? 'border-l-2' : 'border-l'} border-slate-800 p-0 ${bad('in')}`}>
+          <input type="time" aria-label={`${date} half ${index + 1} IN`} className={cell} value={s.in} disabled={locked} onChange={(e) => set(date, index, { in: e.target.value })} />
+        </td>
+        <td className={`border-l border-slate-800 p-0 ${bad('out')}`}>
+          <input type="time" aria-label={`${date} half ${index + 1} OUT`} className={cell} value={s.out} disabled={locked} onChange={(e) => set(date, index, { out: e.target.value })} />
+        </td>
+        <td className={`border-l border-slate-800 p-0 ${bad('code')}`}>
+          <input type="text" list="project-codes" aria-label={`${date} half ${index + 1} project code`} className={`${cell} font-mono uppercase`} placeholder="Code"
+            value={s.code} disabled={locked} onChange={(e) => set(date, index, { code: e.target.value.toUpperCase() })} />
+        </td>
+      </>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <AppHeader active="timesheet" />
 
       <div className="flex-1 overflow-y-auto">
-        <div className="px-6 lg:px-10 pt-6 pb-10 max-w-5xl mx-auto">
+        <div className="px-4 lg:px-10 pt-6 pb-10 max-w-6xl mx-auto">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-4xl font-normal tracking-tight text-ink">My Timesheet</h1>
-              <p className="text-slate-400 mt-1">Log your work times, {currentUser.name.split(' ')[0]}</p>
+              <p className="text-slate-400 mt-1">Fill in your IN and OUT times and project code for each half of the day, {currentUser.name.split(' ')[0]}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setWeekStart(addDays(weekStart, -7))} className={icon} title="Previous week">‹</button>
+              <button onClick={() => setWeekStart(addDays(weekStart, -7))} className={iconBtn} title="Previous week">‹</button>
               <div className="px-4 py-2 rounded-full bg-slate-800 text-sm font-medium text-slate-200 min-w-[190px] text-center">{rangeLabel(weekStart)}</div>
-              <button onClick={() => setWeekStart(addDays(weekStart, 7))} className={icon} title="Next week">›</button>
+              <button onClick={() => setWeekStart(addDays(weekStart, 7))} className={iconBtn} title="Next week">›</button>
               {!isThisWeek && <button onClick={() => setWeekStart(weekStartOf(today))} className="px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-sm font-medium text-slate-200">This week</button>}
-              <button onClick={() => setEditing(blank(isThisWeek ? today : days[0]))} disabled={locked}
-                className="ml-2 px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">+ Log time</button>
             </div>
           </div>
 
@@ -126,8 +105,8 @@ export default function TimesheetPage() {
             {[
               ['Hours this week', fmtHours(weekHours)],
               ['Days worked', String(daysWorked)],
-              ['Projects', String(projectIds.length)],
-              ['Status', locked ? 'Submitted' : weekHours > 0 ? 'Draft' : 'No time logged'],
+              ['Project codes', String(byCode.size)],
+              ['Status', locked ? 'Submitted' : weekHours > 0 ? 'Draft' : 'Not started'],
             ].map(([k, v]) => (
               <div key={k} className="bg-slate-900 border border-slate-800 rounded-3xl px-5 py-4">
                 <p className="text-sm text-slate-400">{k}</p>
@@ -136,44 +115,77 @@ export default function TimesheetPage() {
             ))}
           </div>
 
-          {/* Days */}
-          <div className="mt-6 space-y-3">
-            {days.map((d) => {
-              const entries = byDay(d)
-              const total = dayHours(d)
-              const weekend = ['Saturday', 'Sunday'].includes(fromLong(d))
-              return (
-                <section key={d} className={`border rounded-3xl overflow-hidden ${d === today ? 'border-ink' : 'border-slate-800'} ${weekend && entries.length === 0 ? 'bg-white' : 'bg-slate-900'}`}>
-                  <div className="flex items-center gap-3 px-5 py-3">
-                    <h2 className="text-sm font-bold text-ink">{dayLabel(d)}</h2>
-                    {d === today && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-ink text-white">Today</span>}
-                    <span className="ml-auto text-sm font-semibold text-ink">{total > 0 ? fmtHours(total) : <span className="text-slate-500 font-normal">—</span>}</span>
-                    {!locked && (
-                      <button onClick={() => setEditing(blank(d))} className="px-3 py-1 rounded-full bg-white hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-300">+ Add</button>
-                    )}
-                  </div>
-                  {entries.map((e) => (
-                    <div key={e.id} className="flex items-center gap-4 px-5 py-3 border-t border-slate-800 bg-white">
-                      <div className="w-32 flex-shrink-0">
-                        <p className="text-sm font-semibold text-ink">{e.start} – {e.end}</p>
-                        <p className="text-xs text-slate-500">{e.breakMins ? `${e.breakMins} min break` : 'No break'}</p>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-ink truncate">{projectName(e.projectId)}{canAccessTasks(currentUser) && taskName(e.taskId) && <span className="text-slate-400"> · {taskName(e.taskId)}</span>}</p>
-                        {e.description && <p className="text-xs text-slate-400 truncate">{e.description}</p>}
-                      </div>
-                      <span className="text-sm font-bold text-ink w-16 text-right">{fmtHours(entryHours(e))}</span>
-                      {!locked && (
-                        <div className="flex gap-1">
-                          <button onClick={() => setEditing(e)} className="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200">Edit</button>
-                          <button onClick={() => remove(e)} className="px-3 py-1 rounded-full bg-red-50 hover:bg-red-100 text-xs font-medium text-red-600">Delete</button>
-                        </div>
-                      )}
-                    </div>
+          {/* The timesheet */}
+          <div className="mt-6 border border-slate-800 rounded-3xl overflow-hidden overflow-x-auto bg-white">
+            <table className="w-full min-w-[820px] border-collapse">
+              <thead className="bg-slate-900">
+                <tr>
+                  <th rowSpan={2} className={`${th} text-left pl-5 w-40`}>Day</th>
+                  <th colSpan={3} className={`${th} border-l border-slate-800`}>First half</th>
+                  <th colSpan={3} className={`${th} border-l-2 border-slate-800`}>Second half</th>
+                  <th rowSpan={2} className={`${th} border-l-2 border-slate-800 w-28`}>Hours</th>
+                  <th rowSpan={2} className={`${th} w-20`} />
+                </tr>
+                <tr>
+                  {['IN', 'OUT', 'Project code', 'IN', 'OUT', 'Project code'].map((h, i) => (
+                    <th key={i} className={`${th} ${i === 3 ? 'border-l-2' : 'border-l'} border-slate-800`}>{h}</th>
                   ))}
-                </section>
-              )
-            })}
+                </tr>
+              </thead>
+              <tbody>
+                {days.map((d) => {
+                  const weekend = [0, 6].includes(fromISO(d).getDay())
+                  const problems = problemsOf(d)
+                  const total = dayHours(d)
+                  const hasData = sessionsOf(d).some((s) => s.in || s.out || s.code)
+                  return (
+                    <tr key={d} className={`border-t border-slate-800 ${d === today ? 'bg-slate-900' : weekend ? 'bg-slate-900/50' : ''}`}>
+                      <td className="pl-5 pr-2 py-2.5 whitespace-nowrap">
+                        <p className="text-sm font-semibold text-ink">{fromISO(d).toLocaleDateString(undefined, { weekday: 'short' })}</p>
+                        <p className="text-xs text-slate-500">{fromISO(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}{d === today && <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-ink text-white">Today</span>}</p>
+                      </td>
+                      {sessionCells(d, 0, problems[0])}
+                      {sessionCells(d, 1, problems[1])}
+                      <td className="border-l-2 border-slate-800 px-2 text-center whitespace-nowrap">
+                        {problems.some(Boolean)
+                          ? <span className="text-xs font-semibold text-red-600" title={problems.filter(Boolean).join(' · ')}>⚠ {problems.find(Boolean)}</span>
+                          : <span className={`text-sm font-bold ${total > 0 ? 'text-ink' : 'text-slate-500 font-normal'}`}>{total > 0 ? fmtHours(total) : '—'}</span>}
+                      </td>
+                      <td className="px-1 text-center whitespace-nowrap">
+                        {!locked && (
+                          <span className="inline-flex gap-0.5">
+                            <button onClick={() => copyFromAbove(d)} title="Copy the day above" className="w-7 h-7 rounded-full text-slate-500 hover:text-ink hover:bg-slate-800 text-sm">↑</button>
+                            {hasData && <button onClick={() => clearDay(d)} title="Clear this day" className="w-7 h-7 rounded-full text-slate-500 hover:text-red-600 hover:bg-red-50 text-sm">✕</button>}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot className="bg-slate-900 border-t-2 border-slate-700">
+                <tr>
+                  <td colSpan={7} className="py-3 text-sm font-bold text-ink text-right pr-4">Total for the week</td>
+                  <td className="border-l-2 border-slate-800 px-2 text-center text-sm font-bold text-ink">{fmtHours(weekHours)}</td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <datalist id="project-codes">
+            {myProjects.map((p) => <option key={p.id} value={projectCodeOf(p)}>{p.name}</option>)}
+          </datalist>
+
+          {/* Hours by project code */}
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-semibold text-slate-500 mr-1">Project codes</span>
+            {myProjects.map((p) => (
+              <span key={p.id} className="text-xs px-3 py-1 rounded-full bg-slate-800 text-slate-300">
+                <span className="font-mono font-bold text-ink">{projectCodeOf(p)}</span> {p.name}
+                {byCode.get(projectCodeOf(p)) ? <span className="font-bold text-ink"> · {fmtHours(byCode.get(projectCodeOf(p))!)}</span> : null}
+              </span>
+            ))}
           </div>
 
           {/* Submit */}
@@ -187,25 +199,21 @@ export default function TimesheetPage() {
               ) : (
                 <>
                   <p className="text-sm font-semibold text-ink">Total for the week: {fmtHours(weekHours)}</p>
-                  <p className="text-xs text-slate-500">Submit when you've logged everything for {rangeLabel(weekStart)}.</p>
+                  <p className={`text-xs ${anyProblem ? 'text-red-600' : 'text-slate-500'}`}>
+                    {anyProblem ? 'Fix the highlighted cells before submitting.' : `Submit when you've filled in everything for ${rangeLabel(weekStart)}.`}
+                  </p>
                 </>
               )}
             </div>
             {locked ? (
               <button onClick={() => reopenTimesheetWeek(currentUser.id, weekStart)} className="px-5 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">Reopen week</button>
             ) : (
-              <button onClick={() => submitTimesheetWeek(currentUser.id, weekStart)} disabled={weekHours === 0}
+              <button onClick={() => submitTimesheetWeek(currentUser.id, weekStart)} disabled={weekHours === 0 || anyProblem}
                 className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">Submit week</button>
             )}
           </div>
         </div>
       </div>
-
-      {editing && <EntryModal initial={editing} onSave={save} onClose={() => setEditing(null)} />}
     </div>
   )
-}
-
-function fromLong(iso: string) {
-  return new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))).toLocaleDateString('en-US', { weekday: 'long' })
 }

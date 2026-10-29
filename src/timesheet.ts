@@ -1,4 +1,4 @@
-import type { TimesheetEntry } from './types'
+import type { Project, TimesheetSession } from './types'
 
 // Dates are handled as local YYYY-MM-DD strings so weeks never shift with the time zone.
 export const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -17,11 +17,26 @@ export const weekDays = (weekStart: string) => Array.from({ length: 7 }, (_, i) 
 
 const toMins = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 
-/** Worked hours for an entry (end − start − break), never negative */
-export function entryHours(e: Pick<TimesheetEntry, 'start' | 'end' | 'breakMins'>): number {
-  if (!e.start || !e.end) return 0
-  return Math.max(0, (toMins(e.end) - toMins(e.start) - (e.breakMins || 0)) / 60)
+/** Hours worked in one session (OUT − IN); 0 until both times are filled and OUT is after IN */
+export function sessionHours(s: Pick<TimesheetSession, 'in' | 'out'>): number {
+  if (!s.in || !s.out) return 0
+  return Math.max(0, (toMins(s.out) - toMins(s.in)) / 60)
 }
+
+/** What is wrong with a session, if anything */
+export function sessionProblem(s: TimesheetSession, knownCodes: string[]): string {
+  const any = s.in || s.out || s.code
+  if (!any) return ''
+  if (!s.in || !s.out) return 'Enter both IN and OUT'
+  if (toMins(s.out) <= toMins(s.in)) return 'OUT must be after IN'
+  if (!s.code.trim()) return 'Enter a project code'
+  if (!knownCodes.includes(s.code.trim().toUpperCase())) return 'Unknown project code'
+  return ''
+}
+
+/** The code shown for a project: its own code, or initials of its name */
+export const projectCodeOf = (p: Pick<Project, 'name' | 'code'>) =>
+  (p.code?.trim() || p.name.split(/\s+/).map((w) => w[0]).join('')).toUpperCase()
 
 export function fmtHours(h: number): string {
   const mins = Math.round(h * 60)

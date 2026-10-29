@@ -1,4 +1,4 @@
-export type UserRole = 'it' | 'bms' | 'manager' | 'engineer'
+export type UserRole = 'it' | 'manager' | 'engineer'
 
 export type TeamType = 'Quality' | 'Site Engineer' | 'Engineer' | 'Manager' | 'Commercial' | 'Planning' | 'Executive' | 'Finance'
 
@@ -15,6 +15,7 @@ export interface Project {
   id: string
   name: string
   description: string
+  code?: string          // short project code used on timesheets, e.g. BLD-A
 }
 
 export interface Signature {
@@ -168,7 +169,7 @@ export interface DocBlock {
 
 export type BmsCategory = 'Policy' | 'Procedure' | 'Form' | 'Template' | 'Register' | 'Manual' | 'Checklist Template'
 
-// A new version being prepared for a published document. It is only visible to the BMS team
+// A new version being prepared for a published document. It is only visible to IT
 // until it is published, which rolls it out to the projects.
 export interface BmsPending {
   title: string
@@ -330,16 +331,17 @@ export interface ProjectOrgEntry {
 }
 
 // ── Timesheets ────────────────────────────────────────────────────
-export interface TimesheetEntry {
-  id: string
+// A day has two sessions (the two halves of the day): IN, OUT and the project code worked on.
+export interface TimesheetSession {
+  in: string      // HH:MM
+  out: string     // HH:MM
+  code: string    // project code
+}
+
+export interface TimesheetDay {
   userId: string
-  projectId: string
-  taskId?: string
-  date: string          // YYYY-MM-DD
-  start: string         // HH:MM
-  end: string           // HH:MM
-  breakMins: number
-  description: string
+  date: string    // YYYY-MM-DD
+  sessions: [TimesheetSession, TimesheetSession]
 }
 
 export interface TimesheetSubmission {

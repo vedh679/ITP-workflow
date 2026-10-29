@@ -3,7 +3,7 @@ import { useAppStore } from '../store'
 import Logo from './Logo'
 import ProjectSwitcher from './ProjectSwitcher'
 import { pendingDocs } from '../projectDocs'
-import { canAccessTasks, isCentral, isIT } from '../access'
+import { isCentral } from '../access'
 
 type Active = 'overview' | 'tasks' | 'documents' | 'organisation' | 'timesheet' | 'admin'
 
@@ -27,11 +27,11 @@ export default function AppHeader({ active }: { active: Active }) {
 
   const tabs: { key: Active; label: string; path: string; badge?: number }[] = [
     { key: 'overview', label: 'Overview', path: '/home' },
-    ...(canAccessTasks(currentUser) ? [{ key: 'tasks' as const, label: 'Tasks', path: '/tasks' }] : []),
-    { key: 'documents', label: 'Documents', path: '/documents', badge: docsBehind },
+    { key: 'tasks', label: 'Tasks', path: '/tasks' },
+    { key: 'documents', label: 'Document Register', path: '/documents', badge: docsBehind },
     { key: 'organisation', label: 'Organisation', path: '/organisation' },
     { key: 'timesheet', label: 'Timesheet', path: '/timesheet' },
-    ...(isCentral(currentUser) ? [{ key: 'admin' as const, label: isIT(currentUser) ? 'IT' : 'BMS', path: '/admin' }] : []),
+    ...(isCentral(currentUser) ? [{ key: 'admin' as const, label: 'IT', path: '/admin' }] : []),
   ]
   // Project pages need a chosen project; the timesheet is personal and doesn't
   const go = (key: Active, path: string) => {

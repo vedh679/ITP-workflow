@@ -1,9 +1,9 @@
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { pendingDocs } from '../projectDocs'
 import { isChecklistComplete, isManager } from '../workflow'
-import { canAccessTasks, canManageBms, isCentral, isIT } from '../access'
+import { canManageBms, isCentral } from '../access'
 import { fmtDate, nextReviewDue, reviewState, reviewsDue } from '../bmsReview'
 
 function greeting() {
@@ -34,13 +34,10 @@ export default function HomePage() {
   const navigate = useNavigate()
   const { currentUser, currentProjectId, projects, tasks, bmsDocuments, projectDocuments } = useAppStore()
 
-  if (!currentUser) {
-    navigate('/')
-    return null
-  }
+  if (!currentUser) return <Navigate to="/" replace />   // signed out
 
   const activeProject = projects.find((p) => p.id === currentProjectId)
-  const isAdmin = isCentral(currentUser)   // IT and the BMS team work across all projects
+  const isAdmin = isCentral(currentUser)   // IT works across all projects
 
   // Headline numbers for the tasks this person can see
   const scoped = isAdmin ? tasks : tasks.filter((t) => t.projectId === currentProjectId)
@@ -73,15 +70,15 @@ export default function HomePage() {
             <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">!</div>
             <div className="flex-1 min-w-[220px]">
               <p className="text-sm font-semibold text-amber-700">
-                {isManager(currentUser) ? 'BMS documents need your attention' : 'BMS documents are out of date'}
+                {isManager(currentUser) ? 'Your document register needs attention' : 'The document register is out of date'}
               </p>
               <p className="text-xs text-amber-700/80">
-                {behind.length} core document{behind.length === 1 ? '' : 's'} {behind.length === 1 ? 'has' : 'have'} a new version in the BMS:{' '}
+                {behind.length} document{behind.length === 1 ? '' : 's'} {behind.length === 1 ? 'has' : 'have'} a newer version in the BMS core library:{' '}
                 {behind.slice(0, 3).map((b) => b.project ? `${b.doc.title} (${b.project})` : b.doc.title).join(', ')}{behind.length > 3 ? '…' : ''}
               </p>
             </div>
             <button onClick={() => navigate('/documents')} className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">
-              {isManager(currentUser) ? 'Review & update' : 'View documents'}
+              {isManager(currentUser) ? 'Review & update' : 'View register'}
             </button>
           </div>
         )}
@@ -95,7 +92,7 @@ export default function HomePage() {
             <div className="mt-4 px-5 py-4 rounded-3xl bg-amber-50 border border-amber-100 flex items-center gap-4 flex-wrap">
               <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">!</div>
               <div className="flex-1 min-w-[220px]">
-                <p className="text-sm font-semibold text-amber-700">{due.length} BMS document{due.length === 1 ? ' is' : 's are'} due for review{overdue ? ` (${overdue} overdue)` : ''}</p>
+                <p className="text-sm font-semibold text-amber-700">{due.length} core library document{due.length === 1 ? ' is' : 's are'} due for review{overdue ? ` (${overdue} overdue)` : ''}</p>
                 <p className="text-xs text-amber-700/80">
                   {due.slice(0, 3).map((d) => `${d.title} — ${fmtDate(nextReviewDue(d))}`).join(' · ')}{due.length > 3 ? '…' : ''}
                 </p>
@@ -105,8 +102,7 @@ export default function HomePage() {
           )
         })()}
 
-        {/* Task numbers — not shown to the BMS team, who have no access to tasks */}
-        {canAccessTasks(currentUser) && (
+        {/* KPI row */}
         <div className="grid gap-5 mt-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi icon={icon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2')}
             label="Active tasks" value={active.length} caption={`of ${scoped.length} total`} />
@@ -118,12 +114,10 @@ export default function HomePage() {
           <Kpi icon={icon('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z')} label="Overdue" value={overdue.length}
             caption={overdue.length > 0 ? 'past due date' : 'on schedule'} tone={overdue.length > 0 ? 'warn' : undefined} />
         </div>
-        )}
 
         {/* Where to next */}
         <h2 className="text-xl font-bold text-ink mt-10 mb-4">Jump in</h2>
         <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
-          {canAccessTasks(currentUser) && (
           <button onClick={() => navigate('/tasks')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
             <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
@@ -135,7 +129,6 @@ export default function HomePage() {
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
-          )}
 
           <button onClick={() => navigate('/documents')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
@@ -144,10 +137,10 @@ export default function HomePage() {
             </div>
             <div className="flex-1">
               <h3 className="text-xl font-bold text-ink flex items-center gap-2 flex-wrap">
-                BMS Core Documents
+                Document Register
                 {behind.length > 0 && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-coral text-white whitespace-nowrap">{behind.length} to update</span>}
               </h3>
-              <p className="text-slate-400 text-sm mt-0.5">Procedures, policies & forms this project works to</p>
+              <p className="text-slate-400 text-sm mt-0.5">Where this project keeps its up-to-date documents</p>
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
@@ -186,8 +179,8 @@ export default function HomePage() {
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-xl font-bold text-ink">{isIT(currentUser) ? 'IT' : 'BMS'}</h3>
-                <p className="text-slate-400 text-sm mt-0.5">{isIT(currentUser) ? 'Members, projects, BMS documents & workflows' : 'Create, edit, publish and roll out core documents'}</p>
+                <h3 className="text-xl font-bold text-ink">IT</h3>
+                <p className="text-slate-400 text-sm mt-0.5">Members, projects, the BMS core library & workflows</p>
               </div>
               <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
             </button>
