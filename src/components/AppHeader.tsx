@@ -5,7 +5,7 @@ import ProjectSwitcher from './ProjectSwitcher'
 import { pendingDocs, reviewsDueIn } from '../projectDocs'
 import { canAccessRegister, canAccessTasks, canViewOrganisation, isCentral } from '../access'
 
-type Active = 'overview' | 'tasks' | 'documents' | 'organisation' | 'timesheet' | 'admin'
+type Active = 'none' | 'overview' | 'tasks' | 'documents' | 'organisation' | 'timesheet' | 'admin'
 
 // Shared top bar: logo + project switcher (left), pill navigation (centre), user (right)
 export default function AppHeader({ active }: { active: Active }) {

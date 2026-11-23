@@ -1,3 +1,4 @@
+import AppHeader from '../components/AppHeader'
 import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
@@ -396,28 +397,20 @@ export default function AdminPage() {
 
   return (
     <div className="flex h-full bg-white overflow-hidden flex-col">
-      {/* Top nav: back · title · centred pill tabs */}
-      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-8 pt-6 pb-4 flex-shrink-0">
-        <div className="flex items-center gap-4 justify-self-start min-w-0">
-          <button onClick={() => navigate('/home')} title="Back to home"
-            className="w-11 h-11 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink transition-colors flex items-center justify-center flex-shrink-0">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <h1 className="text-3xl font-normal tracking-tight text-ink">IT</h1>
-          <span className="hidden xl:inline text-xs font-semibold bg-ink text-white px-3 py-1 rounded-full whitespace-nowrap">IT access</span>
-        </div>
+      <AppHeader active="admin" />
 
-        {/* Centred on the window */}
-        <div className="flex items-center gap-1 bg-slate-800 rounded-full p-1">
+      {/* IT sections */}
+      <div className="px-10 pt-1 pb-3 flex items-center gap-3 flex-wrap flex-shrink-0">
+        <h1 className="text-2xl font-medium tracking-tight text-ink">IT</h1>
+        <div className="flex items-center gap-1 bg-slate-800 rounded-full p-0.5">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-colors ${tab === t.key ? 'bg-ink text-white' : 'text-slate-300 hover:text-ink hover:bg-white'}`}>
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${tab === t.key ? 'bg-ink text-white' : 'text-slate-300 hover:text-ink hover:bg-white'}`}>
               {t.label}
             </button>
           ))}
         </div>
-        <div />
-      </header>
+      </div>
 
       {/* Tab content */}
       <div className="flex flex-1 overflow-hidden">

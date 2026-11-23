@@ -35,7 +35,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="h-full overflow-y-auto flex p-6">
+    <div className="h-full overflow-y-auto flex flex-col">
+      {/* Same bar as the rest of the app, before anyone is signed in */}
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 xl:gap-4 px-4 lg:px-10 py-3 flex-shrink-0">
+        <div className="flex items-center gap-3 justify-self-start"><Logo size={32} /><span className="text-sm font-semibold text-ink">ITP Workflow</span></div>
+      </header>
+      <div className="flex-1 flex p-6">
       <div className="w-full max-w-md py-6 m-auto">
         {/* Branding */}
         <div className="flex flex-col items-center text-center mb-8">
@@ -98,6 +103,7 @@ export default function LoginPage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

@@ -57,9 +57,9 @@ export default function HomePage() {
     <div className="h-full overflow-y-auto">
       <AppHeader active="overview" />
 
-      <main className="px-10 pb-10 pt-8 max-w-6xl mx-auto">
-        <h1 className="text-4xl font-normal tracking-tight text-ink">Overview</h1>
-        <p className="text-xl text-slate-400 mt-1.5">
+      <main className="px-10 pb-10 pt-1 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-medium tracking-tight text-ink">Overview</h1>
+        <p className="text-sm text-slate-400 mt-0.5">
           {greeting()}, {currentUser.name.split(' ')[0]} 👋
           {activeProject && !isAdmin && <span className="text-slate-500"> · {activeProject.name}</span>}
         </p>

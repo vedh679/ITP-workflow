@@ -100,11 +100,11 @@ export default function TimesheetPage() {
       <AppHeader active="timesheet" />
 
       <div className="flex-1 overflow-y-auto">
-        <div className="px-4 lg:px-10 pt-6 pb-10 max-w-6xl mx-auto">
+        <div className="px-4 lg:px-10 pt-1 pb-10 max-w-6xl mx-auto">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-4xl font-normal tracking-tight text-ink">My Timesheet</h1>
-              <p className="text-slate-400 mt-1">Fill in your IN and OUT times and project code for each half of the day, {currentUser.name.split(' ')[0]}</p>
+              <h1 className="text-2xl font-medium tracking-tight text-ink">My Timesheet</h1>
+              <p className="text-sm text-slate-400 mt-0.5">Fill in your IN and OUT times and project code for each half of the day, {currentUser.name.split(' ')[0]}</p>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => { setWeekStart(addDays(weekStart, -7)); setCopied('') }} className={iconBtn} title="Previous week">‹</button>
