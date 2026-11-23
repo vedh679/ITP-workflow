@@ -1,9 +1,9 @@
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
-import { pendingDocs } from '../projectDocs'
+import { pendingDocs, reviewsDueIn } from '../projectDocs'
 import { isChecklistComplete, isManager } from '../workflow'
-import { canManageBms, isCentral } from '../access'
+import { canAccessRegister, canAccessTasks, canManageBms, canViewOrganisation, isCentral } from '../access'
 import { fmtDate, nextReviewDue, reviewState, reviewsDue } from '../bmsReview'
 
 function greeting() {
@@ -40,7 +40,7 @@ export default function HomePage() {
   const isAdmin = isCentral(currentUser)   // IT works across all projects
 
   // Headline numbers for the tasks this person can see
-  const scoped = isAdmin ? tasks : tasks.filter((t) => t.projectId === currentProjectId)
+  const scoped = tasks.filter((t) => t.projectId === currentProjectId)
   const today = new Date().toISOString().slice(0, 10)
   const active = scoped.filter((t) => t.status !== 'completed')
   const awaiting = scoped.filter((t) => t.workflowRun?.status === 'awaiting-initiation')
@@ -49,9 +49,9 @@ export default function HomePage() {
   const overdue = active.filter((t) => t.dueDate && t.dueDate < today)
 
   // BMS core documents the project is behind on (the manager is prompted to update them)
-  const behind = isAdmin
-    ? projects.flatMap((p) => pendingDocs(p.id, bmsDocuments, projectDocuments).map((x) => ({ ...x, project: p.name })))
-    : pendingDocs(currentProjectId ?? '', bmsDocuments, projectDocuments).map((x) => ({ ...x, project: '' }))
+  const behind = canAccessRegister(currentUser) ? pendingDocs(currentProjectId ?? '', bmsDocuments, projectDocuments) : []
+  // ...and those due their 12-month review
+  const reviewDue = canAccessRegister(currentUser) ? reviewsDueIn(currentProjectId ?? '', projectDocuments) : []
 
   return (
     <div className="h-full overflow-y-auto">
@@ -64,18 +64,22 @@ export default function HomePage() {
           {activeProject && !isAdmin && <span className="text-slate-500"> · {activeProject.name}</span>}
         </p>
 
-        {/* BMS update prompt */}
-        {behind.length > 0 && (
+        {/* Register prompts: a template has moved on, or a document is due its 12-month review */}
+        {(behind.length > 0 || reviewDue.length > 0) && (
           <div className="mt-8 px-5 py-4 rounded-3xl bg-amber-50 border border-amber-100 flex items-center gap-4 flex-wrap">
             <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">!</div>
-            <div className="flex-1 min-w-[220px]">
+            <div className="flex-1 min-w-[220px] space-y-0.5">
               <p className="text-sm font-semibold text-amber-700">
-                {isManager(currentUser) ? 'Your document register needs attention' : 'The document register is out of date'}
+                {isManager(currentUser) ? 'Your document register needs attention' : 'Some register documents need attention'}
               </p>
-              <p className="text-xs text-amber-700/80">
-                {behind.length} document{behind.length === 1 ? '' : 's'} {behind.length === 1 ? 'has' : 'have'} a newer version in the BMS core library:{' '}
-                {behind.slice(0, 3).map((b) => b.project ? `${b.doc.title} (${b.project})` : b.doc.title).join(', ')}{behind.length > 3 ? '…' : ''}
-              </p>
+              {behind.length > 0 && (
+                <p className="text-xs text-amber-700/80">
+                  {behind.length} to update — the BMS library has a newer template: {behind.slice(0, 3).map((b) => b.template.title).join(', ')}{behind.length > 3 ? '…' : ''}
+                </p>
+              )}
+              {reviewDue.length > 0 && (
+                <p className="text-xs text-amber-700/80">{reviewDue.length} due for review — 12 months since the last edit.</p>
+              )}
             </div>
             <button onClick={() => navigate('/documents')} className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">
               {isManager(currentUser) ? 'Review & update' : 'View register'}
@@ -102,7 +106,8 @@ export default function HomePage() {
           )
         })()}
 
-        {/* KPI row */}
+        {/* Task numbers — IT doesn't work on tasks */}
+        {canAccessTasks(currentUser) && (
         <div className="grid gap-5 mt-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi icon={icon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2')}
             label="Active tasks" value={active.length} caption={`of ${scoped.length} total`} />
@@ -114,10 +119,12 @@ export default function HomePage() {
           <Kpi icon={icon('M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z')} label="Overdue" value={overdue.length}
             caption={overdue.length > 0 ? 'past due date' : 'on schedule'} tone={overdue.length > 0 ? 'warn' : undefined} />
         </div>
+        )}
 
         {/* Where to next */}
         <h2 className="text-xl font-bold text-ink mt-10 mb-4">Jump in</h2>
         <div className="grid gap-5 grid-cols-1 md:grid-cols-2">
+          {canAccessTasks(currentUser) && (
           <button onClick={() => navigate('/tasks')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
             <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
@@ -129,7 +136,9 @@ export default function HomePage() {
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
+          )}
 
+          {canAccessRegister(currentUser) && (
           <button onClick={() => navigate('/documents')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
             <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
@@ -144,6 +153,7 @@ export default function HomePage() {
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
+          )}
 
           <button onClick={() => navigate('/timesheet')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
@@ -157,6 +167,7 @@ export default function HomePage() {
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
 
+          {canViewOrganisation(currentUser) && (
           <button onClick={() => navigate('/organisation')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
             <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
@@ -168,6 +179,7 @@ export default function HomePage() {
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
+          )}
 
           {isAdmin && (
             <button onClick={() => navigate('/admin')}

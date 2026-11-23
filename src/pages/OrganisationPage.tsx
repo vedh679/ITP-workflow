@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { isManager } from '../workflow'
-import { isCentral, roleChip, ROLE_LABEL, ROLE_ORDER } from '../access'
+import { canViewOrganisation, roleChip, ROLE_LABEL, ROLE_ORDER } from '../access'
 import type { AppUser, ProjectOrgEntry } from '../types'
 import { TEAM_OPTIONS } from '../teams'
 
@@ -62,17 +62,16 @@ function descendantsOf(id: string, parentOf: Record<string, string | null>): Set
 export default function OrganisationPage() {
   const navigate = useNavigate()
   const { currentUser, currentProjectId, projects, members, tasks, projectOrg, setProjectOrgEntry } = useAppStore()
-  const [adminProjectId, setAdminProjectId] = useState(projects[0]?.id ?? '')
   const [editing, setEditing] = useState(false)
 
-  const isAdmin = isCentral(currentUser)
-  const projectId = isAdmin ? adminProjectId : (currentProjectId ?? '')
+  const projectId = currentProjectId ?? ''
   const project = projects.find((p) => p.id === projectId)
   const team = useMemo(() => members.filter((m) => m.projectIds.includes(projectId)), [members, projectId])
   const entries = useMemo(() => projectOrg.filter((e) => e.projectId === projectId), [projectOrg, projectId])
   const { roots, parentOf } = useMemo(() => buildTree(team, entries), [team, entries])
 
   if (!currentUser) return <Navigate to="/" replace />   // signed out
+  if (!canViewOrganisation(currentUser)) return <Navigate to="/home" replace />   // IT doesn't use the organisation chart
   const canEdit = isManager(currentUser)
 
   const taskCount = (m: AppUser) => tasks.filter((t) => t.projectId === projectId && t.assignedTo === m.email && t.status !== 'completed').length
@@ -127,18 +126,12 @@ export default function OrganisationPage() {
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <AppHeader active="organisation" />
 
-      <div className="px-10 pt-6 pb-4 flex items-end justify-between gap-4 flex-wrap flex-shrink-0">
-        <div>
-          <h1 className="text-4xl font-normal tracking-tight text-ink">Project Organisation</h1>
-          <p className="text-slate-400 mt-1">The team {project ? <>on <span className="text-slate-200 font-medium">{project.name}</span></> : ''} and how it fits together</p>
+      <div className="px-10 pt-1 pb-3 flex items-center justify-between gap-4 flex-wrap flex-shrink-0">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl font-medium tracking-tight text-ink">Project Organisation</h1>
+          <p className="text-sm text-slate-400">The team {project ? <>on <span className="text-slate-200 font-medium">{project.name}</span></> : ''} and how it fits together</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {isAdmin && (
-            <select value={projectId} onChange={(e) => setAdminProjectId(e.target.value)}
-              className="px-4 py-2.5 rounded-full bg-slate-800 text-sm font-medium text-slate-200 focus:outline-none">
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          )}
           {canEdit && (
             <button onClick={() => setEditing((v) => !v)}
               className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-colors ${editing ? 'bg-ink text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'}`}>

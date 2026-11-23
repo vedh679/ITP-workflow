@@ -10,7 +10,7 @@ import NewTaskModal from '../components/NewTaskModal'
 import AddInspectionModal from '../components/AddInspectionModal'
 import InspectionDetail from '../components/InspectionDetail'
 import AppHeader from '../components/AppHeader'
-import { canManageProject, isCentral } from '../access'
+import { canAccessTasks, canManageProject } from '../access'
 import TaskWorkflowBanner from '../components/TaskWorkflowBanner'
 
 function statusBadge(status: Task['status']) {
@@ -35,10 +35,8 @@ export default function TasksPage() {
   // Build name lookup from live members list
   const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
 
-  // Non-admins only see tasks for the active project
-  const projectFilteredTasks = isCentral(currentUser)
-    ? tasks
-    : tasks.filter((t) => t.projectId === currentProjectId)
+  // Tasks for the active project
+  const projectFilteredTasks = tasks.filter((t) => t.projectId === currentProjectId)
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(projectFilteredTasks[0]?.id ?? null)
   const [search, setSearch] = useState('')
@@ -60,6 +58,7 @@ export default function TasksPage() {
   }, [currentProjectId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!currentUser) return <Navigate to="/" replace />   // signed out
+  if (!canAccessTasks(currentUser)) return <Navigate to="/home" replace />   // IT doesn't work on tasks
 
   const canEdit = canManageProject(currentUser)
 

@@ -50,6 +50,20 @@ export default function TimesheetPage() {
     set(date, 0, { ...above[0] }); set(date, 1, { ...above[1] })
   }
 
+  // Fill this week with last week's table: every IN, OUT and project code, day for day
+  const prevDays = weekDays(addDays(weekStart, -7))
+  const prevHasData = prevDays.some((d) => sessionsOf(d).some((x) => x.in || x.out || x.code))
+  const [copied, setCopied] = useState('')
+  const copyPreviousWeek = () => {
+    const thisHasData = days.some((d) => sessionsOf(d).some((x) => x.in || x.out || x.code))
+    if (thisHasData && !window.confirm('This week already has entries. Replace them with last week\'s?')) return
+    days.forEach((d, i) => {
+      const src = sessionsOf(prevDays[i])
+      set(d, 0, { ...src[0] }); set(d, 1, { ...src[1] })
+    })
+    setCopied(`Filled in from ${rangeLabel(addDays(weekStart, -7))}.`)
+  }
+
   const cell = 'w-full bg-transparent px-2 py-2.5 text-sm text-ink text-center focus:outline-none focus:bg-white focus:ring-2 focus:ring-inset focus:ring-ink disabled:opacity-60 disabled:cursor-not-allowed'
   const iconBtn = 'w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-ink flex items-center justify-center transition-colors'
   const th = 'px-2 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-400 border-b border-slate-800'
@@ -93,9 +107,9 @@ export default function TimesheetPage() {
               <p className="text-slate-400 mt-1">Fill in your IN and OUT times and project code for each half of the day, {currentUser.name.split(' ')[0]}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={() => setWeekStart(addDays(weekStart, -7))} className={iconBtn} title="Previous week">‹</button>
+              <button onClick={() => { setWeekStart(addDays(weekStart, -7)); setCopied('') }} className={iconBtn} title="Previous week">‹</button>
               <div className="px-4 py-2 rounded-full bg-slate-800 text-sm font-medium text-slate-200 min-w-[190px] text-center">{rangeLabel(weekStart)}</div>
-              <button onClick={() => setWeekStart(addDays(weekStart, 7))} className={iconBtn} title="Next week">›</button>
+              <button onClick={() => { setWeekStart(addDays(weekStart, 7)); setCopied('') }} className={iconBtn} title="Next week">›</button>
               {!isThisWeek && <button onClick={() => setWeekStart(weekStartOf(today))} className="px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-sm font-medium text-slate-200">This week</button>}
             </div>
           </div>
@@ -115,8 +129,17 @@ export default function TimesheetPage() {
             ))}
           </div>
 
+          {!locked && (
+            <div className="mt-6 flex items-center gap-3 flex-wrap">
+              <button onClick={copyPreviousWeek} disabled={!prevHasData}
+                title={prevHasData ? 'Copy every time and project code from last week' : 'Nothing was entered last week'}
+                className="px-4 py-2 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">Same as previous week</button>
+              <span className="text-xs text-slate-500">{copied || (prevHasData ? `Copies all times and codes from ${rangeLabel(addDays(weekStart, -7))}. You can still edit any cell.` : 'Nothing was entered last week to copy.')}</span>
+            </div>
+          )}
+
           {/* The timesheet */}
-          <div className="mt-6 border border-slate-800 rounded-3xl overflow-hidden overflow-x-auto bg-white">
+          <div className="mt-3 border border-slate-800 rounded-3xl overflow-hidden overflow-x-auto bg-white">
             <table className="w-full min-w-[820px] border-collapse">
               <thead className="bg-slate-900">
                 <tr>

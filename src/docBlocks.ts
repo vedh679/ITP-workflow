@@ -6,6 +6,10 @@ export const newBlockId = () => `blk-${Date.now().toString(36)}-${Math.random().
 export function blocksToText(blocks: DocBlock[]): string {
   return blocks.map((b) => {
     if (b.type === 'field') return `[Project to complete: ${b.label || 'untitled field'}]`
+    if (b.type === 'table') {
+      const head = `Table${b.label ? `: ${b.label}` : ''}${b.tableMode === 'fill' ? ' [project to complete]' : ''}`
+      return [head, (b.columns ?? []).join(' | '), ...(b.rows ?? []).map((r) => r.join(' | '))].join('\n')
+    }
     return b.text ?? ''
   }).join('\n')
 }
@@ -16,6 +20,12 @@ export function contentToBlocks(content: string): DocBlock[] {
   const blocks = lines.map((text): DocBlock => ({ id: newBlockId(), type: 'paragraph', text }))
   return blocks.length ? blocks : [{ id: newBlockId(), type: 'paragraph', text: '' }]
 }
+
+/** A new table: 3 columns and 2 empty rows that the project team fills in */
+export const newTable = (): DocBlock => ({
+  id: newBlockId(), type: 'table', label: '', tableMode: 'fill', allowAddRows: true,
+  columns: ['Item', 'Detail', 'Notes'], colLocked: [false, false, false], rows: [['', '', ''], ['', '', '']],
+})
 
 export const field = (label: string, fieldType: DocBlock['fieldType'] = 'text', hint = ''): DocBlock =>
   ({ id: newBlockId(), type: 'field', label, fieldType, hint })

@@ -34,5 +34,12 @@ export const isCentral = (u: U) => u?.role === 'it'
 export const canAdministerSystem = (u: U) => u?.role === 'it'
 /** Create, edit, review and publish BMS core library documents */
 export const canManageBms = (u: U) => u?.role === 'it'
+/** The project organisation chart belongs to the project teams; IT works across projects and doesn't use it */
+export const canViewOrganisation = (u: U) => u?.role !== 'it'
+
+/** Tasks (with their checklists and inspections) and the document register are project work; IT doesn't use them */
+export const canAccessTasks = (u: U) => u?.role !== 'it'
+export const canAccessRegister = (u: U) => u?.role !== 'it'
+
 /** Manage tasks, checklists and project structure */
 export const canManageProject = (u: U) => u?.role === 'it' || u?.role === 'manager'

@@ -31,7 +31,7 @@ export default function ProjectSwitcher({ variant = 'dark' }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors bg-slate-800 hover:bg-slate-700 text-slate-200"
+        className="flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors bg-slate-800 hover:bg-slate-700 text-slate-200"
       >
         <svg className="w-4 h-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}

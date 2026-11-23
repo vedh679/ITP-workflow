@@ -51,15 +51,23 @@ interface AppState {
   updateWorkflow: (workflow: Workflow) => void
   deleteWorkflow: (id: string) => void
 
-  // Project documents: a project takes up (or updates to) a version of a BMS document
-  adoptProjectDocument: (projectId: string, bmsDocumentId: string, version: string, by: string) => void
+  // Project documents: a project pulls a BMS library template in to create its own document
+  createProjectDocument: (doc: ProjectDocument) => void
+  updateProjectDocument: (id: string, patch: Partial<Pick<ProjectDocument, 'status'>>) => void
+  saveProjectDocUpdateDraft: (id: string, toVersion: string, values: Record<string, string>, by: string) => void
+  discardProjectDocUpdateDraft: (id: string) => void
+  applyProjectDocUpdate: (id: string, toVersion: string, values: Record<string, string>, by: string, note?: string) => void
+  reviewProjectDocument: (id: string, comment: string, by: string) => void
+  saveProjectDocumentFields: (id: string, values: Record<string, string>, by: string) => void
+  saveProjectDocEditDraft: (id: string, values: Record<string, string>, by: string) => void
+  discardProjectDocEditDraft: (id: string) => void
+
   // Timesheets
   setTimesheetSession: (userId: string, date: string, index: 0 | 1, patch: Partial<TimesheetSession>) => void
   submitTimesheetWeek: (userId: string, weekStart: string) => void
   reopenTimesheetWeek: (userId: string, weekStart: string) => void
 
   setProjectOrgEntry: (projectId: string, memberId: string, patch: Partial<Pick<ProjectOrgEntry, 'title' | 'reportsToId'>>) => void
-  saveProjectDocumentFields: (projectId: string, bmsDocumentId: string, values: Record<string, string>, by: string) => void
 }
 
 // ── Sample projects ───────────────────────────────────────────────
@@ -217,12 +225,13 @@ const SAMPLE_WORKFLOWS: Workflow[] = [
   },
 ]
 
-// ── Sample project documents: both projects start on v1.0 of the sample BMS documents ──
-const SAMPLE_PROJECT_DOCUMENTS: ProjectDocument[] = ['p1', 'p2'].flatMap((projectId) =>
-  ['bms1', 'bms2', 'bms3'].map((bmsDocumentId) => ({
-    id: `pd-${projectId}-${bmsDocumentId}`, projectId, bmsDocumentId, adoptedVersion: '1.0',
-    adoptedAt: new Date().toISOString(), adoptedBy: 'System',
-    history: [{ version: '1.0', at: new Date().toISOString(), by: 'System' }],
+// ── Sample project documents: each project has already created a document from each sample template ──
+const SAMPLE_PROJECT_DOCUMENTS: ProjectDocument[] = SAMPLE_PROJECTS.flatMap((project) =>
+  SAMPLE_BMS.map((template) => ({
+    id: `pd-${project.id}-${template.id}`, projectId: project.id, bmsDocumentId: template.id, adoptedVersion: template.version,
+    adoptedAt: new Date().toISOString(), adoptedBy: 'System', createdAt: new Date().toISOString(),
+    sequence: 1, revision: 1, lastEditedAt: new Date().toISOString(), versions: [], status: 'active' as const,
+    history: [{ version: template.version, at: new Date().toISOString(), by: 'System', note: 'Created from the BMS library' }],
   })))
 
 // ── Sample project organisation ──
@@ -237,6 +246,13 @@ const SAMPLE_PROJECT_ORG: ProjectOrgEntry[] = [
 ]
 
 // ── Store ─────────────────────────────────────────────────────────
+// Close the current revision of a project document (kept exactly as it was) and open the next one
+function nextRevision(d: ProjectDocument, by: string, now: string, note: string): ProjectDocument {
+  const revision = d.revision ?? 1
+  const previous = { revision, templateVersion: d.adoptedVersion, fieldValues: d.fieldValues ?? {}, startedAt: d.revisionStartedAt ?? d.adoptedAt, endedAt: now, endedBy: by, note }
+  return { ...d, revision: revision + 1, revisionStartedAt: now, versions: [...(d.versions ?? []), previous] }
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
@@ -311,22 +327,55 @@ export const useAppStore = create<AppState>()(
         return { projectOrg: [...s.projectOrg, { projectId, memberId, title: '', reportsToId: null, ...patch }] }
       }),
 
-      saveProjectDocumentFields: (projectId, bmsDocumentId, values, by) => set((s) => ({
-        projectDocuments: s.projectDocuments.map((d) => d.projectId === projectId && d.bmsDocumentId === bmsDocumentId
-          ? { ...d, fieldValues: values, fieldsUpdatedAt: new Date().toISOString(), fieldsUpdatedBy: by } : d),
-      })),
-
-      adoptProjectDocument: (projectId, bmsDocumentId, version, by) => set((s) => {
+      // A project pulls a library template in to create its own document
+      createProjectDocument: (doc) => set((s) => ({ projectDocuments: [...s.projectDocuments, doc] })),
+      updateProjectDocument: (id, patch) => set((s) => ({ projectDocuments: s.projectDocuments.map((d) => d.id === id ? { ...d, ...patch } : d) })),
+      // Saving project details is an edit: it becomes the next revision (the one before is kept), and the 12-month review period restarts
+      saveProjectDocumentFields: (id, values, by) => set((s) => {
         const now = new Date().toISOString()
-        const existing = s.projectDocuments.find((d) => d.projectId === projectId && d.bmsDocumentId === bmsDocumentId)
-        if (existing) {
-          return { projectDocuments: s.projectDocuments.map((d) => d === existing
-            ? { ...d, adoptedVersion: version, adoptedAt: now, adoptedBy: by, history: [...d.history, { version, at: now, by }] } : d) }
-        }
-        return { projectDocuments: [...s.projectDocuments, {
-          id: `pd-${projectId}-${bmsDocumentId}`, projectId, bmsDocumentId, adoptedVersion: version,
-          adoptedAt: now, adoptedBy: by, history: [{ version, at: now, by }],
-        }] }
+        return { projectDocuments: s.projectDocuments.map((d) => {
+          if (d.id !== id) return d
+          if (JSON.stringify(d.fieldValues ?? {}) === JSON.stringify(values)) return { ...d, editDraft: undefined }
+          return { ...nextRevision(d, by, now, 'Edited by the project manager'), fieldValues: values, fieldsUpdatedAt: now, fieldsUpdatedBy: by, lastEditedAt: now, editDraft: undefined,
+            history: [...d.history, { version: d.adoptedVersion, at: now, by, note: `Edited — revision ${(d.revision ?? 1) + 1}` }] }
+        }) }
+      }),
+      // A draft of the project details: kept for later, not a new revision and does not restart the review period
+      saveProjectDocEditDraft: (id, values, by) => set((s) => ({
+        projectDocuments: s.projectDocuments.map((d) => d.id === id ? { ...d, editDraft: { values, savedAt: new Date().toISOString(), savedBy: by } } : d),
+      })),
+      discardProjectDocEditDraft: (id) => set((s) => ({
+        projectDocuments: s.projectDocuments.map((d) => d.id === id ? { ...d, editDraft: undefined } : d),
+      })),
+      // An update to a newer template version, started but not yet applied
+      saveProjectDocUpdateDraft: (id, toVersion, values, by) => set((s) => ({
+        projectDocuments: s.projectDocuments.map((d) => d.id === id ? { ...d, updateDraft: { toVersion, values, savedAt: new Date().toISOString(), savedBy: by } } : d),
+      })),
+      discardProjectDocUpdateDraft: (id) => set((s) => ({
+        projectDocuments: s.projectDocuments.map((d) => d.id === id ? { ...d, updateDraft: undefined } : d),
+      })),
+      // Apply the update: the current revision is kept as it was, and the checked-and-edited document becomes the next revision
+      applyProjectDocUpdate: (id, toVersion, values, by, note) => set((s) => {
+        const now = new Date().toISOString()
+        return { projectDocuments: s.projectDocuments.map((d) => {
+          if (d.id !== id) return d
+          const revision = d.revision ?? 1
+          const previous = { revision, templateVersion: d.adoptedVersion, fieldValues: d.fieldValues ?? {}, startedAt: d.revisionStartedAt ?? d.adoptedAt, endedAt: now, endedBy: by, note }
+          return { ...d, adoptedVersion: toVersion, adoptedAt: now, adoptedBy: by, revision: revision + 1, revisionStartedAt: now, fieldValues: values,
+            fieldsUpdatedAt: now, fieldsUpdatedBy: by, lastEditedAt: now, updateDraft: undefined, versions: [...(d.versions ?? []), previous],
+            history: [...d.history, { version: toVersion, at: now, by, note: `Updated to template v${toVersion} (revision ${revision + 1})${note ? ` — ${note}` : ''}` }] }
+        }) }
+      }),
+      // A review is also a new revision (content unchanged), and restarts the 12-month period
+      reviewProjectDocument: (id, comment, by) => set((s) => {
+        const now = new Date().toISOString()
+        return { projectDocuments: s.projectDocuments.map((d) => {
+          if (d.id !== id) return d
+          const revision = d.revision ?? 1
+          return { ...nextRevision(d, by, now, `Reviewed — no changes${comment.trim() ? `: ${comment.trim()}` : ''}`), lastReviewedAt: now, lastReviewedBy: by,
+            reviews: [{ id: `prev-${Date.now()}`, at: now, by, revision, comment: comment.trim() }, ...(d.reviews ?? [])],
+            history: [...d.history, { version: d.adoptedVersion, at: now, by, note: `Reviewed, no changes — revision ${revision + 1}` }] }
+        }) }
       }),
     }),
     {
@@ -334,7 +383,9 @@ export const useAppStore = create<AppState>()(
       // v2: the old "admin" access role became "IT"
       // v3: the short-lived "BMS team" role was removed (IT maintains the BMS core library)
       // v4: the timesheet became a table with two sessions (IN / OUT / project code) per day
-      version: 4,
+      // v5/v6: a project's documents became instances of BMS library templates; their name and number come from the template
+      // v7: project documents have revisions and a 12-month review period
+      version: 7,
       migrate: (persisted, version) => {
         const state = persisted as { members?: { id: string; role: string }[]; currentUser?: { role: string } | null; projectOrg?: { memberId: string }[] }
         if (version < 2) {
@@ -364,6 +415,20 @@ export const useAppStore = create<AppState>()(
             return { userId: sorted[0].userId, date: sorted[0].date, sessions: [sess(sorted[0]), sess(sorted[1])] }
           })
           if (legacy.projects) legacy.projects = legacy.projects.map((p) => ({ ...p, code: p.code ?? codeOf(p.id) }))
+        }
+        if (version < 6) {
+          // a project document's name and number now come from its BMS template, and copies are numbered automatically
+          const legacy = state as { projectDocuments?: { projectId: string; bmsDocumentId: string; adoptedAt: string; sequence?: number; status?: string; createdAt?: string; title?: string; docNumber?: string }[] }
+          const seen: Record<string, number> = {}
+          legacy.projectDocuments = (legacy.projectDocuments ?? []).map(({ title: _t, docNumber: _n, ...d }) => {
+            const key = `${d.projectId}|${d.bmsDocumentId}`
+            seen[key] = (seen[key] ?? 0) + 1
+            return { ...d, sequence: d.sequence ?? seen[key], status: d.status ?? 'active', createdAt: d.createdAt ?? d.adoptedAt }
+          })
+        }
+        if (version < 7) {
+          const legacy = state as { projectDocuments?: { adoptedAt: string; fieldsUpdatedAt?: string; revision?: number; lastEditedAt?: string; versions?: unknown[] }[] }
+          legacy.projectDocuments = (legacy.projectDocuments ?? []).map((d) => ({ ...d, revision: d.revision ?? 1, lastEditedAt: d.lastEditedAt ?? d.fieldsUpdatedAt ?? d.adoptedAt, versions: d.versions ?? [] }))
         }
         return state as never
       },

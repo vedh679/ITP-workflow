@@ -10,10 +10,10 @@ export const CORE_CATEGORIES: { key: BmsCategory; blurb: string }[] = [
   { key: 'Manual',    blurb: 'Top-level system manuals' },
 ]
 
-// A project holds one version of each BMS core document. When the admin publishes
-// a newer version (or a brand-new document), the project falls behind and its
-// project manager is prompted to update.
-export type DocStatus = 'current' | 'update' | 'new'
+// The BMS library holds the templates (and every version of each). A project pulls a template in
+// to create its own document, which it fills in and keeps in its document register. The document
+// remembers its template version, and the project manager is prompted when the template moves on.
+export type DocStatus = 'current' | 'update'
 
 export interface DocVersion {
   version: string
@@ -37,31 +37,72 @@ export function versionsOf(doc: BmsDocument): DocVersion[] {
   }]
 }
 
-export function docStatus(doc: BmsDocument, record?: ProjectDocument): DocStatus {
-  if (!record) return 'new'
-  return record.adoptedVersion === doc.version ? 'current' : 'update'
+export function docStatus(template: BmsDocument, doc: ProjectDocument): DocStatus {
+  return doc.adoptedVersion === template.version ? 'current' : 'update'
 }
 
-/** Versions published after the one the project holds, newest first */
-export function changesSince(doc: BmsDocument, adoptedVersion?: string): DocVersion[] {
-  const all = versionsOf(doc)
+/** Versions published after the one the document is on, newest first */
+export function changesSince(template: BmsDocument, adoptedVersion?: string): DocVersion[] {
+  const all = versionsOf(template)
   const idx = adoptedVersion ? all.findIndex((v) => v.version === adoptedVersion) : -1
   return (idx >= 0 ? all.slice(idx + 1) : all.slice(-1)).reverse()
 }
 
-export function recordFor(records: ProjectDocument[], projectId: string, docId: string) {
-  return records.find((r) => r.projectId === projectId && r.bmsDocumentId === docId)
-}
-
-/** Only published documents are rolled out to projects; drafts stay with IT */
+/** Only published documents are available to projects; drafts stay in the library */
 export const publishedDocs = (docs: BmsDocument[]) => docs.filter((d) => d.status !== 'draft')
 
-/** Documents in a project that are behind the latest BMS version (or not yet added) */
-export function pendingDocs(projectId: string, docs: BmsDocument[], records: ProjectDocument[]) {
-  return publishedDocs(docs)
-    .map((doc) => ({ doc, status: docStatus(doc, recordFor(records, projectId, doc.id)) }))
-    .filter((x) => x.status !== 'current')
+/** Library templates a project can pull in (checklist templates live separately) */
+export const libraryTemplates = (docs: BmsDocument[]) => publishedDocs(docs)
+
+export const isActive = (d: ProjectDocument) => d.status !== 'archived'
+
+export const projectDocsOf = (records: ProjectDocument[], projectId: string) => records.filter((r) => r.projectId === projectId && isActive(r))
+
+/** Project documents whose template has a newer published version */
+export function pendingDocs(projectId: string, templates: BmsDocument[], records: ProjectDocument[]) {
+  return projectDocsOf(records, projectId)
+    .map((instance) => ({ instance, template: templates.find((t) => t.id === instance.bmsDocumentId) }))
+    .filter((x): x is { instance: ProjectDocument; template: BmsDocument } => !!x.template && x.template.status !== 'draft' && docStatus(x.template, x.instance) === 'update')
+    .map((x) => ({ ...x, status: 'update' as const }))
 }
+
+// ── Review: each project document is reviewed 12 months after its last edit ──
+export const REGISTER_REVIEW_MONTHS = 12
+const SOON_DAYS = 30
+
+/** The date the 12-month period runs from: the last edit, or a review that confirmed no changes were needed */
+export function reviewBase(d: ProjectDocument): Date {
+  const times = [d.lastEditedAt, d.lastReviewedAt, d.createdAt, d.adoptedAt].filter(Boolean).map((t) => new Date(t as string).getTime())
+  return new Date(Math.max(...times))
+}
+
+export function nextReviewDate(d: ProjectDocument): Date {
+  const due = reviewBase(d)
+  due.setMonth(due.getMonth() + REGISTER_REVIEW_MONTHS)
+  return due
+}
+
+export type RegisterReviewState = 'ok' | 'due-soon' | 'overdue'
+
+export function registerReviewState(d: ProjectDocument, now = new Date()): RegisterReviewState {
+  const days = (nextReviewDate(d).getTime() - now.getTime()) / 86_400_000
+  return days < 0 ? 'overdue' : days <= SOON_DAYS ? 'due-soon' : 'ok'
+}
+
+/** Active project documents whose review is overdue or due within a month */
+export const reviewsDueIn = (projectId: string, records: ProjectDocument[]) =>
+  projectDocsOf(records, projectId).filter((d) => registerReviewState(d) !== 'ok')
+
+export const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+
+/** Every project document made from a template, across projects */
+export const usageOf = (templateId: string, records: ProjectDocument[]) => records.filter((r) => r.bmsDocumentId === templateId && isActive(r))
+
+/** The next copy number for a template in a project (archived copies still count, so numbers never repeat) */
+export const nextSequence = (records: ProjectDocument[], projectId: string, templateId: string) =>
+  records.filter((r) => r.projectId === projectId && r.bmsDocumentId === templateId).reduce((n, r) => Math.max(n, r.sequence ?? 0), 0) + 1
+
+export const seqLabel = (n: number) => `No. ${String(n).padStart(2, '0')}`
 
 /** "Policy" → "Policies", "Form" → "Forms" */
 export function pluralCategory(c: string): string {

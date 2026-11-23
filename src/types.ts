@@ -155,7 +155,7 @@ export interface Task {
 // A block in a structured (Word-style) BMS document.
 // heading / paragraph text is fixed — project teams cannot change it.
 // field blocks are spaces the project team fills in with project-specific information.
-export type DocBlockType = 'heading' | 'paragraph' | 'field'
+export type DocBlockType = 'heading' | 'paragraph' | 'field' | 'table'
 
 export interface DocBlock {
   id: string
@@ -165,6 +165,12 @@ export interface DocBlock {
   label?: string                      // field: what the project team should enter
   hint?: string                       // field: guidance shown to the project team
   fieldType?: 'text' | 'long' | 'date'   // field: single line, multi-line or date
+  // table blocks: `label` is the caption
+  columns?: string[]               // column headers
+  rows?: string[][]                // the rows the admin set up (a fill-in table's starting rows)
+  tableMode?: 'fixed' | 'fill'     // fixed = locked like the text; fill = the project team completes cells
+  colLocked?: boolean[]            // fill-in tables: columns the project team can't change
+  allowAddRows?: boolean           // fill-in tables: the project team can add rows (default true)
 }
 
 export type BmsCategory = 'Policy' | 'Procedure' | 'Form' | 'Template' | 'Register' | 'Manual' | 'Checklist Template'
@@ -302,24 +308,68 @@ export interface WorkflowRun {
   log: WorkflowLogEntry[]
 }
 
-// ── Project documents (which BMS version each project holds) ──────
+// ── Project documents: documents a project creates from BMS library templates ──
 export interface ProjectDocumentHistory {
-  version: string
+  version: string   // template version
   at: string
   by: string
+  note?: string
 }
 
+// A document in a project's register, created by pulling a template in from the BMS library.
+// Its name and number are always the template's (never edited by the project). It remembers which
+// template version it is on, so the project is told when the template moves on.
 export interface ProjectDocument {
   id: string
   projectId: string
-  bmsDocumentId: string
-  adoptedVersion: string         // the BMS version this project is currently working to
+  bmsDocumentId: string          // the BMS library template this document was created from
+  adoptedVersion: string         // the template version this document is on
   adoptedAt: string
   adoptedBy: string
+  sequence: number               // which copy of the template this is in the project (1, 2 …), set automatically
+  status?: 'active' | 'archived' // undefined counts as active
+  createdAt?: string
   history: ProjectDocumentHistory[]
   fieldValues?: Record<string, string>   // what the project team entered, by field block id
   fieldsUpdatedAt?: string
   fieldsUpdatedBy?: string
+  // Revisions and review. The first version is revision 1; each update to a newer template version
+  // is the next revision, and the earlier ones are kept in `versions`.
+  revision?: number
+  revisionStartedAt?: string             // when the current revision began
+  lastEditedAt?: string                  // last edit (creation, saved project details, or an update); the 12-month review period runs from here
+  lastReviewedAt?: string                // a review that confirmed nothing needed changing also restarts the period
+  lastReviewedBy?: string
+  reviews?: ProjectDocReview[]           // newest first
+  versions?: ProjectDocVersion[]         // earlier revisions, oldest first
+  editDraft?: { values: Record<string, string>; savedAt: string; savedBy: string }  // project details saved as a draft, not yet a new revision
+  updateDraft?: ProjectDocUpdateDraft    // an update to a newer template version that has been started but not applied
+}
+
+export interface ProjectDocReview {
+  id: string
+  at: string
+  by: string
+  revision: number
+  comment: string
+}
+
+// An earlier revision of a project document, kept exactly as it was
+export interface ProjectDocVersion {
+  revision: number
+  templateVersion: string
+  fieldValues: Record<string, string>
+  startedAt: string                      // when this revision was created
+  endedAt: string                        // when it was replaced
+  endedBy: string
+  note?: string
+}
+
+export interface ProjectDocUpdateDraft {
+  toVersion: string
+  values: Record<string, string>
+  savedAt: string
+  savedBy: string
 }
 
 // ── Project organisation (who is on a project and where they sit in the team) ──

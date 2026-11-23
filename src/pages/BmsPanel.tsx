@@ -5,6 +5,7 @@ import { useAppStore as useStore } from '../store'
 import { CORE_CATEGORIES } from '../projectDocs'
 import { blocksToText, contentToBlocks, newBlockId } from '../docBlocks'
 import { DEFAULT_REVIEW_MONTHS, fmtDate, nextReviewDue, reviewState, reviewsDue } from '../bmsReview'
+import { seqLabel, usageOf } from '../projectDocs'
 import DocumentEditor from '../components/DocumentEditor'
 import DocumentView from '../components/DocumentView'
 
@@ -221,6 +222,8 @@ export default function BmsPanel() {
   const [needsReview, setNeedsReview] = useState(false)
   const [showReviews, setShowReviews] = useState(false)
   const currentUser = useStore((s) => s.currentUser)
+  const projectDocuments = useStore((s) => s.projectDocuments)
+  const projects = useStore((s) => s.projects)
   const me = currentUser?.name ?? 'Unknown'
 
   const isChecklist = filter === CHECKLIST
@@ -288,7 +291,9 @@ export default function BmsPanel() {
     else if (prev.status === 'draft') updateBms({ ...prev, ...body, ...stamp, changeNote: 'Initial release', revisions: prev.revisions ?? [] })
     else updateBms({ ...prev, ...body, ...stamp, reviews: prev.reviews, changeNote: draft.changeNote!.trim(), revisions: [...(prev.revisions ?? []), { ...snapshotOf(prev), archivedAt: now }] })
     setSelectedId(draft.id); setDraft(null)
-    setNotice(`Published v${body.version} — it is now rolled out. Project managers will be prompted to update.`)
+    setNotice(prev && prev.status !== 'draft'
+      ? `Published v${body.version}. Projects with documents built from this template will be prompted to update.`
+      : `Published v${body.version} — it is now in the library for projects to add to their document registers.`)
   }
   /** Publish what is already saved (a never-published draft, or a saved draft of the next version) */
   const publishSaved = () => {
@@ -297,11 +302,11 @@ export default function BmsPanel() {
     const stamp = { status: 'published' as const, publishedAt: now, publishedBy: me, lastReviewedAt: now, lastReviewedBy: me, pending: undefined, updatedAt: now }
     if (selected.status === 'draft') {
       updateBms({ ...selected, ...stamp, changeNote: 'Initial release', revisions: selected.revisions ?? [] })
-      setNotice(`Published v${selected.version} — it is now rolled out to the projects.`)
+      setNotice(`Published v${selected.version} — it is now in the library for projects to add to their document registers.`)
     } else if (selected.pending) {
       const { savedAt: _a, savedBy: _b, ...fields } = selected.pending
       updateBms({ ...selected, ...fields, ...stamp, revisions: [...(selected.revisions ?? []), { ...snapshotOf(selected), archivedAt: now }] })
-      setNotice(`Published v${selected.pending.version} — it is now rolled out. Project managers will be prompted to update.`)
+      setNotice(`Published v${selected.pending.version}. Projects with documents built from this template will be prompted to update.`)
     }
   }
   // ── Review & update ──
@@ -363,6 +368,12 @@ export default function BmsPanel() {
     setDraft(null)
   }
   const remove = () => {
+    // a template that projects have built documents from can't be deleted out from under them
+    const inUse = selected && !isChecklist ? usageOf(selected.id, projectDocuments) : []
+    if (selected && inUse.length > 0) {
+      window.alert(`"${selected.title}" is used by ${inUse.length} project document${inUse.length === 1 ? '' : 's'} (${[...new Set(inUse.map((d) => projects.find((p) => p.id === d.projectId)?.name ?? 'a project'))].join(', ')}), so it can't be deleted. Publish a new version instead, or have the projects archive their documents first.`)
+      return
+    }
     if (!selected || !window.confirm(`Delete "${selected.title}" and all its archived versions?`)) return
     deleteDoc(selected.id)
     setSelectedId(null)
@@ -492,7 +503,7 @@ export default function BmsPanel() {
                 </>
               )}
               <button onClick={() => { setDraft(null); setSelectedId(selected?.id ?? null) }} className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 text-sm font-semibold">Cancel</button>
-              {!isChecklist && <span className="text-xs text-slate-500">Publishing rolls the document out to every project and prompts the project managers.</span>}
+              {!isChecklist && <span className="text-xs text-slate-500">Publishing makes it available in the library for projects to add; projects already using it are prompted to update.</span>}
             </div>
           </div>
         ) : selected ? (
@@ -540,21 +551,21 @@ export default function BmsPanel() {
                   <button onClick={reviewStartUpdate} disabled={!reviewing.comment.trim()} className="px-4 py-2 rounded-full bg-coral hover:bg-coral-dark disabled:opacity-40 text-white text-sm font-semibold">Changes needed — start update</button>
                   <button onClick={() => setReviewing(null)} className="px-4 py-2 rounded-full bg-slate-800 text-slate-200 text-sm font-semibold">Cancel</button>
                 </div>
-                <p className="text-[11px] text-slate-500">Starting an update opens the editor with your notes as the change note. Nothing is rolled out until you publish.</p>
+                <p className="text-[11px] text-slate-500">Starting an update opens the editor with your notes as the change note. Nothing reaches the projects until you publish.</p>
               </div>
             )}
             {!isChecklist && selected.status === 'draft' && (
               <div className="rounded-3xl bg-amber-50 border border-amber-100 px-5 py-4 flex items-center gap-4 flex-wrap">
                 <div className="flex-1 min-w-[220px]">
-                  <p className="text-sm font-semibold text-amber-700">Draft — not rolled out</p>
-                  <p className="text-xs text-amber-700/80">Projects can’t see this document yet. Publish it to roll it out to every project.</p>
+                  <p className="text-sm font-semibold text-amber-700">Draft — not in the library yet</p>
+                  <p className="text-xs text-amber-700/80">Projects can’t see this template yet. Publish it to make it available for projects to add to their registers.</p>
                 </div>
                 <button onClick={publishSaved} className="px-5 py-2 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">Publish v{selected.version}</button>
               </div>
             )}
             {!isChecklist && selected.status !== 'draft' && selected.pending && (
               <div className="rounded-3xl bg-amber-50 border border-amber-100 px-5 py-4 space-y-2">
-                <p className="text-sm font-semibold text-amber-700">Draft v{selected.pending.version} saved — not rolled out</p>
+                <p className="text-sm font-semibold text-amber-700">Draft v{selected.pending.version} saved — not published</p>
                 <p className="text-xs text-amber-700/80">Saved by {selected.pending.savedBy} on {new Date(selected.pending.savedAt).toLocaleString()}. Projects are still on v{selected.version} until you publish.</p>
                 {selected.pending.changeNote ? <p className="text-xs text-amber-700">What changed: {selected.pending.changeNote}</p> : <p className="text-xs text-amber-700">Add a change note (Edit draft) before publishing.</p>}
                 <div className="flex gap-2 flex-wrap pt-1">
@@ -578,6 +589,30 @@ export default function BmsPanel() {
             {selected.file && (
               <a href={selected.file.dataUrl} download={selected.file.name} className="inline-block text-sm text-purple-300 hover:text-purple-200 underline">Download {selected.file.name}</a>
             )}
+            {!isChecklist && selected.status !== 'draft' && (() => {
+              const used = usageOf(selected.id, projectDocuments)
+              return (
+                <section>
+                  <h3 className="text-sm font-bold text-ink mb-2">Used in projects ({used.length})</h3>
+                  {used.length === 0
+                    ? <p className="text-xs text-slate-500">No project has created a document from this template yet. Projects add it from the library in their Document Register.</p>
+                    : (
+                      <div className="rounded-2xl border border-slate-800 divide-y divide-slate-800 bg-white">
+                        {used.map((d) => (
+                          <div key={d.id} className="px-4 py-2.5 text-xs flex items-center gap-3 flex-wrap">
+                            <span className="font-semibold text-ink">{selected.title}</span>
+                            <span className="font-mono text-slate-500">{selected.docNumber} · {seqLabel(d.sequence)}</span>
+                            <span className="text-slate-400">{projects.find((p) => p.id === d.projectId)?.name}</span>
+                            <span className={`ml-auto font-semibold px-2 py-0.5 rounded-full ${d.adoptedVersion === selected.version ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {d.adoptedVersion === selected.version ? `On v${selected.version}` : `On v${d.adoptedVersion} — behind`}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </section>
+              )
+            })()}
             <VersionHistory doc={selected} />
             {!isChecklist && selected.status !== 'draft' && (
               <section>
