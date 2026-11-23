@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
-import { isCentral } from '../access'
+import { canAccessTimesheet, isCentral } from '../access'
 import { addDays, fmtHours, fromISO, projectCodeOf, rangeLabel, sessionHours, sessionProblem, toISO, weekDays, weekStartOf } from '../timesheet'
 import type { TimesheetSession } from '../types'
 
@@ -16,6 +16,8 @@ export default function TimesheetPage() {
   const [weekStart, setWeekStart] = useState(weekStartOf(today))
 
   if (!currentUser) return <Navigate to="/" replace />   // signed out
+
+  if (!canAccessTimesheet(currentUser)) return <Navigate to="/home" replace />   // IT doesn't keep a timesheet
 
   // Projects this person can log time against, and the codes that go with them
   const myProjects = isCentral(currentUser) ? projects : projects.filter((p) => currentUser.projectIds.includes(p.id))

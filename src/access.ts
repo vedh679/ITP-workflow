@@ -39,6 +39,8 @@ export const canViewOrganisation = (u: U) => u?.role !== 'it'
 
 /** Tasks (with their checklists and inspections) and the document register are project work; IT doesn't use them */
 export const canAccessTasks = (u: U) => u?.role !== 'it'
+/** Timesheets are for the project teams; IT doesn't keep one */
+export const canAccessTimesheet = (u: U) => u?.role !== 'it'
 export const canAccessRegister = (u: U) => u?.role !== 'it'
 
 /** Manage tasks, checklists and project structure */

@@ -400,8 +400,8 @@ export default function AdminPage() {
       <AppHeader active="admin" />
 
       {/* IT sections */}
-      <div className="px-10 pt-1 pb-3 flex items-center gap-3 flex-wrap flex-shrink-0">
-        <h1 className="text-2xl font-medium tracking-tight text-ink">IT</h1>
+      <div className="px-10 pt-1 pb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-3 flex-shrink-0">
+        <h1 className="text-2xl font-medium tracking-tight text-ink justify-self-start">IT</h1>
         <div className="flex items-center gap-1 bg-slate-800 rounded-full p-0.5">
           {TABS.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -410,6 +410,7 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+        <div />
       </div>
 
       {/* Tab content */}

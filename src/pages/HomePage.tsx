@@ -3,7 +3,7 @@ import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { pendingDocs, reviewsDueIn } from '../projectDocs'
 import { isChecklistComplete, isManager } from '../workflow'
-import { canAccessRegister, canAccessTasks, canManageBms, canViewOrganisation, isCentral } from '../access'
+import { canAccessRegister, canAccessTasks, canAccessTimesheet, canManageBms, canViewOrganisation, isCentral } from '../access'
 import { fmtDate, nextReviewDue, reviewState, reviewsDue } from '../bmsReview'
 
 function greeting() {
@@ -155,6 +155,7 @@ export default function HomePage() {
           </button>
           )}
 
+          {canAccessTimesheet(currentUser) && (
           <button onClick={() => navigate('/timesheet')}
             className="group text-left bg-slate-900 hover:bg-white border border-slate-800 hover:border-slate-600 hover:shadow-float rounded-3xl p-7 flex items-center gap-5 transition-all">
             <div className="w-14 h-14 rounded-full bg-ink text-white flex items-center justify-center flex-shrink-0">
@@ -166,6 +167,7 @@ export default function HomePage() {
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
+          )}
 
           {canViewOrganisation(currentUser) && (
           <button onClick={() => navigate('/organisation')}

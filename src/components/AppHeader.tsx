@@ -3,7 +3,7 @@ import { useAppStore } from '../store'
 import Logo from './Logo'
 import ProjectSwitcher from './ProjectSwitcher'
 import { pendingDocs, reviewsDueIn } from '../projectDocs'
-import { canAccessRegister, canAccessTasks, canViewOrganisation, isCentral } from '../access'
+import { canAccessRegister, canAccessTasks, canAccessTimesheet, canViewOrganisation, isCentral } from '../access'
 
 type Active = 'none' | 'overview' | 'tasks' | 'documents' | 'organisation' | 'timesheet' | 'admin'
 
@@ -29,7 +29,7 @@ export default function AppHeader({ active }: { active: Active }) {
     ...(canAccessTasks(currentUser) ? [{ key: 'tasks' as const, label: 'Tasks', path: '/tasks' }] : []),
     ...(canAccessRegister(currentUser) ? [{ key: 'documents' as const, label: 'Document Register', path: '/documents', badge: docsBehind }] : []),
     ...(canViewOrganisation(currentUser) ? [{ key: 'organisation' as const, label: 'Organisation', path: '/organisation' }] : []),
-    { key: 'timesheet', label: 'Timesheet', path: '/timesheet' },
+    ...(canAccessTimesheet(currentUser) ? [{ key: 'timesheet' as const, label: 'Timesheet', path: '/timesheet' }] : []),
     ...(isCentral(currentUser) ? [{ key: 'admin' as const, label: 'IT', path: '/admin' }] : []),
   ]
   // Project pages need a chosen project; the timesheet is personal and doesn't
