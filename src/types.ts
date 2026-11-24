@@ -130,11 +130,6 @@ export interface Inspection {
   createdAt: string
 }
 
-export interface CustomTable {
-  columns: string[]   // column header labels
-  rows: string[][]    // rows[r][c] = cell value
-}
-
 // An ITP's own document: it starts as a copy of the BMS ITP template, then belongs to this ITP alone
 export interface TaskItp {
   templateId: string
@@ -159,7 +154,6 @@ export interface Task {
   checklists: TaskChecklist[]
   inspections?: Inspection[]
   createdAt: string
-  customTable?: CustomTable
   itp?: TaskItp              // this ITP's own inspection and test plan document (starts from the BMS ITP template)
   workflowId?: string        // workflow applied to this task
   workflowRun?: WorkflowRun  // progress through that workflow

@@ -1,15 +1,18 @@
-import { useState, useEffect, useRef } from 'react'
-import type { Task, AppUser, CustomTable } from '../types'
+import { useState, useEffect } from 'react'
+import type { Task, AppUser } from '../types'
 import { canManageProject } from '../access'
 import { useAppStore } from '../store'
 import MemberPicker from './MemberPicker'
 import ItpDetail from './ItpDetail'
+import { INSPECTION_COLOR } from './TaskMindMap'
 
-type Sheet = 'itp' | 'details' | 'checklists'
+type Sheet = 'itp' | 'details' | 'checklists' | 'inspections'
 
 interface Props {
   task: Task
   members: AppUser[]
+  onOpenChecklist: (id: string) => void
+  onOpenInspection: (id: string) => void
 }
 
 // ── Shared helpers ────────────────────────────────────────────────
@@ -53,190 +56,13 @@ function StatusBadge({ value }: { value: string }) {
   const map: Record<string, string> = {
     'completed': 'bg-green-900/50 text-green-400 border-green-800',
     'in-progress': 'bg-blue-900/50 text-blue-400 border-blue-800',
+    'open': 'bg-blue-900/50 text-blue-400 border-blue-800',
     'pending': 'bg-slate-800 text-slate-400 border-slate-700',
   }
   return (
     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold border ${map[value] ?? 'bg-slate-800 text-slate-400'}`}>
       {value}
     </span>
-  )
-}
-
-// ── Editable Excel-like grid ──────────────────────────────────────
-const DEFAULT_COLS = ['Column 1', 'Column 2', 'Column 3']
-const DEFAULT_ROWS = [['', '', ''], ['', '', ''], ['', '', '']]
-
-function EditableGrid({ table, onChange }: { table: CustomTable; onChange: (t: CustomTable) => void }) {
-  const [editCell, setEditCell] = useState<{ r: number; c: number } | null>(null)
-  const [editHeader, setEditHeader] = useState<number | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-    inputRef.current?.select()
-  }, [editCell, editHeader])
-
-  const setCell = (r: number, c: number, val: string) => {
-    const rows = table.rows.map((row, ri) =>
-      ri === r ? row.map((cell, ci) => (ci === c ? val : cell)) : row
-    )
-    onChange({ ...table, rows })
-  }
-
-  const setHeader = (c: number, val: string) => {
-    const columns = table.columns.map((col, ci) => (ci === c ? val : col))
-    onChange({ ...table, columns })
-  }
-
-  const addRow = () => {
-    onChange({ ...table, rows: [...table.rows, table.columns.map(() => '')] })
-  }
-
-  const deleteRow = (r: number) => {
-    onChange({ ...table, rows: table.rows.filter((_, ri) => ri !== r) })
-  }
-
-  const addCol = () => {
-    const label = `Column ${table.columns.length + 1}`
-    onChange({
-      columns: [...table.columns, label],
-      rows: table.rows.map((row) => [...row, '']),
-    })
-  }
-
-  const deleteCol = (c: number) => {
-    onChange({
-      columns: table.columns.filter((_, ci) => ci !== c),
-      rows: table.rows.map((row) => row.filter((_, ci) => ci !== c)),
-    })
-  }
-
-  const cellCls = 'relative border-r border-b border-slate-700 min-w-[120px]'
-  const editInputCls = 'w-full h-full px-2 py-1.5 bg-white text-ink text-sm outline-none border-2 border-blue-500 rounded-sm'
-  const displayCls = 'px-2 py-1.5 text-sm text-slate-300 cursor-text select-none truncate min-h-[34px] hover:bg-slate-800/60'
-
-  return (
-    <div className="overflow-auto rounded-xl border border-slate-700">
-      <table className="border-collapse" style={{ tableLayout: 'fixed' }}>
-        <thead>
-          <tr className="bg-slate-800">
-            {/* Row-number gutter */}
-            <th className="w-9 border-r border-b border-slate-700 bg-slate-800" />
-
-            {table.columns.map((col, c) => (
-              <th key={c} className="border-r border-b border-slate-700 min-w-[120px] group relative p-0">
-                {editHeader === c ? (
-                  <input
-                    ref={inputRef}
-                    value={col}
-                    onChange={(e) => setHeader(c, e.target.value)}
-                    onBlur={() => setEditHeader(null)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditHeader(null) }}
-                    className="w-full px-2 py-1.5 bg-white text-ink text-xs font-bold outline-none border-2 border-blue-500"
-                  />
-                ) : (
-                  <div
-                    onDoubleClick={() => setEditHeader(c)}
-                    className="flex items-center justify-between px-2 py-1.5 cursor-default group"
-                  >
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wide truncate">{col}</span>
-                    {/* Delete column — only shows on hover, only if >1 col */}
-                    {table.columns.length > 1 && (
-                      <button
-                        onClick={() => deleteCol(c)}
-                        className="opacity-0 group-hover:opacity-100 ml-1 flex-shrink-0 w-4 h-4 rounded flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-900/20 transition-all"
-                        title="Delete column"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </th>
-            ))}
-
-            {/* Add column */}
-            <th className="border-b border-slate-700 w-9 bg-slate-800/50">
-              <button
-                onClick={addCol}
-                className="w-full h-full flex items-center justify-center text-slate-600 hover:text-blue-400 hover:bg-slate-700/50 transition-colors py-1.5"
-                title="Add column"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-            </th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {table.rows.map((row, r) => (
-            <tr key={r} className={`group/row ${r % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/40'}`}>
-              {/* Row number + delete */}
-              <td className="border-r border-b border-slate-700 bg-slate-900 w-9">
-                <div className="flex items-center justify-end px-1 gap-0.5">
-                  <button
-                    onClick={() => deleteRow(r)}
-                    className="opacity-0 group-hover/row:opacity-100 w-4 h-4 flex items-center justify-center text-slate-700 hover:text-red-400 transition-all"
-                    title="Delete row"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                  <span className="text-xs text-slate-700 font-mono w-4 text-right select-none">{r + 1}</span>
-                </div>
-              </td>
-
-              {row.map((cell, c) => (
-                <td key={c} className={cellCls} onClick={() => setEditCell({ r, c })}>
-                  {editCell?.r === r && editCell?.c === c ? (
-                    <input
-                      ref={inputRef}
-                      value={cell}
-                      onChange={(e) => setCell(r, c, e.target.value)}
-                      onBlur={() => setEditCell(null)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') setEditCell(r + 1 < table.rows.length ? { r: r + 1, c } : null)
-                        if (e.key === 'Escape') setEditCell(null)
-                        if (e.key === 'Tab') {
-                          e.preventDefault()
-                          setEditCell(c + 1 < row.length ? { r, c: c + 1 } : r + 1 < table.rows.length ? { r: r + 1, c: 0 } : null)
-                        }
-                      }}
-                      className={editInputCls}
-                    />
-                  ) : (
-                    <div className={displayCls}>{cell || ''}</div>
-                  )}
-                </td>
-              ))}
-
-              {/* Spacer under add-col button */}
-              <td className="border-b border-slate-700" />
-            </tr>
-          ))}
-
-          {/* Add row */}
-          <tr>
-            <td colSpan={table.columns.length + 2} className="border-t border-slate-700">
-              <button
-                onClick={addRow}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-600 hover:text-blue-400 hover:bg-slate-800/40 transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add row
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
   )
 }
 
@@ -404,18 +230,6 @@ function ITPSheet({ task, members }: { task: Task; members: AppUser[] }) {
           <p className="text-sm text-slate-500 px-3 py-2">{fmtDate(task.createdAt)}</p>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-slate-800" />
-
-        {/* Free-form table */}
-        <div>
-          <FieldLabel>Notes Table</FieldLabel>
-          <EditableGrid
-            table={task.customTable ?? { columns: DEFAULT_COLS, rows: DEFAULT_ROWS }}
-            onChange={(t) => updateTask({ ...task, customTable: t })}
-          />
-        </div>
-
         {/* Bottom padding */}
         <div className="h-4" />
 
@@ -425,7 +239,7 @@ function ITPSheet({ task, members }: { task: Task; members: AppUser[] }) {
 }
 
 // ── Sheet 2 — Checklists ─────────────────────────────────────────
-function ChecklistsSheet({ task, members }: { task: Task; members: AppUser[] }) {
+function ChecklistsSheet({ task, members, onOpen }: { task: Task; members: AppUser[]; onOpen: (id: string) => void }) {
   if (task.checklists.length === 0) {
     return <EmptySheet message="No checklists attached to this ITP." />
   }
@@ -447,6 +261,7 @@ function ChecklistsSheet({ task, members }: { task: Task; members: AppUser[] }) 
             <Th>Signed Date</Th>
             <Th>Attachments</Th>
             <Th>Status</Th>
+            <Th> </Th>
           </tr>
         </thead>
         <tbody>
@@ -459,7 +274,7 @@ function ChecklistsSheet({ task, members }: { task: Task; members: AppUser[] }) 
             const status = isComplete ? 'completed' : done > 0 ? 'in-progress' : 'pending'
 
             return (
-              <tr key={cl.id} className={idx % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/40'}>
+              <tr key={cl.id} onClick={() => onOpen(cl.id)} title="Open this checklist" className={`cursor-pointer hover:bg-slate-800 ${idx % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/40'}`}>
                 <RowNum n={idx + 1} />
                 <Td className="text-slate-500 font-mono text-xs">{String(idx + 1).padStart(2, '0')}</Td>
                 <Td className="font-medium text-ink whitespace-nowrap">{cl.templateName}</Td>
@@ -486,6 +301,7 @@ function ChecklistsSheet({ task, members }: { task: Task; members: AppUser[] }) 
                 <Td className="whitespace-nowrap text-xs">{isSigned ? fmtDate(cl.signature!.date.split('T')[0]) : '—'}</Td>
                 <Td className="text-center">{(cl.attachments ?? []).length || '—'}</Td>
                 <Td><StatusBadge value={status} /></Td>
+                <Td className="text-xs font-semibold text-coral-dark whitespace-nowrap">Open ›</Td>
               </tr>
             )
           })}
@@ -495,6 +311,64 @@ function ChecklistsSheet({ task, members }: { task: Task; members: AppUser[] }) 
   )
 }
 
+
+// ── Sheet 3 — Inspections ────────────────────────────────────────
+function InspectionsSheet({ task, members, onOpen }: { task: Task; members: AppUser[]; onOpen: (id: string) => void }) {
+  const inspections = task.inspections ?? []
+  if (inspections.length === 0) {
+    return <EmptySheet message="No inspections recorded for this ITP." />
+  }
+
+  return (
+    <div className="overflow-auto h-full">
+      <table className="w-full border-collapse">
+        <thead>
+          <tr>
+            <th className="sticky top-0 left-0 z-20 px-2 w-9 bg-slate-800 border-b border-r border-slate-700" />
+            <Th>#</Th>
+            <Th>Type</Th>
+            <Th>Inspection</Th>
+            <Th>Date</Th>
+            <Th>Inspected By</Th>
+            <Th>Location</Th>
+            <Th>Issues</Th>
+            <Th>Open</Th>
+            <Th>Closed</Th>
+            <Th>Completed On</Th>
+            <Th>Status</Th>
+            <Th> </Th>
+          </tr>
+        </thead>
+        <tbody>
+          {inspections.map((insp, idx) => {
+            const open = insp.issues.filter((i) => i.status !== 'closed').length
+            return (
+              <tr key={insp.id} onClick={() => onOpen(insp.id)} title="Open this inspection" className={`cursor-pointer hover:bg-slate-800 ${idx % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/40'}`}>
+                <RowNum n={idx + 1} />
+                <Td className="text-slate-500 font-mono text-xs">{String(idx + 1).padStart(2, '0')}</Td>
+                <Td className="whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: INSPECTION_COLOR[insp.type] }} />{insp.type}
+                  </span>
+                </Td>
+                <Td className="font-medium text-ink whitespace-nowrap">{insp.title}</Td>
+                <Td className="whitespace-nowrap text-xs">{fmtDate(insp.date)}</Td>
+                <Td className="whitespace-nowrap">{nameOf(insp.inspectedBy, members)}</Td>
+                <Td className="whitespace-nowrap">{insp.location || '—'}</Td>
+                <Td className="text-center">{insp.issues.length}</Td>
+                <Td className="text-center">{open > 0 ? <span className="text-amber-400 font-semibold">{open}</span> : 0}</Td>
+                <Td className="text-center">{insp.issues.length - open}</Td>
+                <Td className="whitespace-nowrap text-xs">{insp.completedAt ? fmtDate(insp.completedAt.split('T')[0]) : '—'}</Td>
+                <Td><StatusBadge value={insp.status === 'completed' ? 'completed' : 'open'} /></Td>
+                <Td className="text-xs font-semibold text-coral-dark whitespace-nowrap">Open ›</Td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
 
 function EmptySheet({ message }: { message: string }) {
   return (
@@ -508,7 +382,6 @@ function EmptySheet({ message }: { message: string }) {
 function buildPDF(
   task: Task,
   members: AppUser[],
-  includeTable: boolean,
   selectedChecklists: string[],
 ) {
   const fmt = (iso?: string) => {
@@ -546,30 +419,6 @@ function buildPDF(
           letter-spacing:.04em;background:#f8fafc;border:1px solid #e2e8f0;white-space:nowrap;width:180px">${k}</td>
       <td style="padding:7px 10px;font-size:13px;color:#1e293b;border:1px solid #e2e8f0">${v}</td>
     </tr>`).join('')
-
-  // ── Notes table
-  let tableSection = ''
-  const ct = task.customTable
-  const tableHasContent = ct && ct.rows.some(r => r.some(c => c.trim() !== ''))
-  if (includeTable && ct && tableHasContent) {
-    const headerCells = ct.columns.map(c =>
-      `<th style="padding:7px 10px;font-size:11px;font-weight:700;color:#475569;text-transform:uppercase;
-        letter-spacing:.04em;background:#f8fafc;border:1px solid #e2e8f0;text-align:left">${c}</th>`
-    ).join('')
-    const dataRows = ct.rows.map((row, ri) => {
-      const cells = row.map(cell =>
-        `<td style="padding:7px 10px;font-size:13px;color:#1e293b;border:1px solid #e2e8f0">${cell || ''}</td>`
-      ).join('')
-      return `<tr style="background:${ri % 2 === 0 ? '#fff' : '#f8fafc'}">${cells}</tr>`
-    }).join('')
-    tableSection = `
-      <h2 style="font-size:14px;font-weight:700;color:#334155;margin:28px 0 10px;
-          padding-bottom:6px;border-bottom:2px solid #e2e8f0">Notes Table</h2>
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr>${headerCells}</tr></thead>
-        <tbody>${dataRows}</tbody>
-      </table>`
-  }
 
   // ── Checklist sections
   const clSections = task.checklists
@@ -635,23 +484,19 @@ function buildPDF(
       Exported ${new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
     </p>
     <table style="width:100%;border-collapse:collapse">${itpRows}</table>
-    ${tableSection}
     ${clSections}
   </body></html>`
 }
 
 // ── Export modal ──────────────────────────────────────────────────
 function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[]; onClose: () => void }) {
-  const ct = task.customTable
-  const tableHasContent = !!ct && ct.rows.some(r => r.some(c => c.trim() !== ''))
-  const [includeTable, setIncludeTable] = useState(tableHasContent)
   const [selectedCl, setSelectedCl] = useState<string[]>([])
 
   const toggleCl = (id: string) =>
     setSelectedCl(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const handleExport = () => {
-    const html = buildPDF(task, members, includeTable, selectedCl)
+    const html = buildPDF(task, members, selectedCl)
     const win = window.open('', '_blank')
     if (!win) return
     win.document.write(html)
@@ -694,34 +539,6 @@ function ExportModal({ task, members, onClose }: { task: Task; members: AppUser[
               </div>
               <span className="text-sm text-slate-300">ITP header fields</span>
             </div>
-
-            {/* Notes table toggle — only shown if the table exists */}
-            {ct && (
-              <button
-                onClick={() => setIncludeTable(v => !v)}
-                className={`mt-2 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
-                  includeTable
-                    ? 'bg-coral-tint border-coral'
-                    : 'bg-slate-800/30 border-slate-700 hover:border-slate-500'
-                }`}
-              >
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                  includeTable ? 'bg-blue-600 border-blue-600' : 'border-slate-600'
-                }`}>
-                  {includeTable && (
-                    <svg className="w-3 h-3 text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-                <div>
-                  <span className="text-sm text-slate-300">Notes table</span>
-                  {!tableHasContent && (
-                    <span className="ml-2 text-xs text-slate-600">(empty)</span>
-                  )}
-                </div>
-              </button>
-            )}
           </div>
 
           {/* Checklists */}
@@ -833,9 +650,18 @@ const SHEETS: { id: Sheet; label: string; icon: React.ReactNode }[] = [
       </svg>
     ),
   },
+  {
+    id: 'inspections',
+    label: 'Inspections',
+    icon: (
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" />
+      </svg>
+    ),
+  },
 ]
 
-export default function TaskTableView({ task, members }: Props) {
+export default function TaskTableView({ task, members, onOpenChecklist, onOpenInspection }: Props) {
   const currentUser = useAppStore((s) => s.currentUser)
   const updateTask = useAppStore((s) => s.updateTask)
   const canManage = canManageProject(currentUser)
@@ -865,6 +691,7 @@ export default function TaskTableView({ task, members }: Props) {
         <div className="ml-auto pb-2 flex items-center gap-3">
           <span className="text-xs text-slate-600">
             {sheet === 'details' && '9 fields'}
+            {sheet === 'inspections' && `${(task.inspections ?? []).length} row${(task.inspections ?? []).length !== 1 ? 's' : ''} · 11 columns`}
             {sheet === 'checklists' && `${task.checklists.length} row${task.checklists.length !== 1 ? 's' : ''} · 12 columns`}
           </span>
 
@@ -890,7 +717,8 @@ export default function TaskTableView({ task, members }: Props) {
           ? <ItpDetail key={task.id} task={task} itp={task.itp} canEdit={canManage} onSave={(itp) => updateTask({ ...task, itp })} />
           : <p className="p-8 text-sm text-slate-500">This ITP has no inspection and test plan document. The BMS library had no published ITP template when it was created.</p>)}
         {sheet === 'details'    && <ITPSheet        task={task} members={members} />}
-        {sheet === 'checklists' && <ChecklistsSheet task={task} members={members} />}
+        {sheet === 'checklists' && <ChecklistsSheet task={task} members={members} onOpen={onOpenChecklist} />}
+        {sheet === 'inspections' && <InspectionsSheet task={task} members={members} onOpen={onOpenInspection} />}
       </div>
 
       {/* Export modal */}

@@ -344,14 +344,13 @@ export default function TasksPage() {
         </div>
 
         {/* Workflow progress + manager prompts */}
-        {selectedTask && <TaskWorkflowBanner task={selectedTask} onOpenChecklist={(id) => { setViewMode('mindmap'); setOpenChecklistId(id) }} />}
+        {selectedTask && <TaskWorkflowBanner task={selectedTask} onOpenChecklist={(id) => setOpenChecklistId(id)} />}
 
         {/* Content */}
         {selectedTask ? (
           <div className="flex-1 overflow-hidden relative">
             {viewMode === 'mindmap' ? (
-              <>
-                <TaskMindMap
+              <TaskMindMap
                   task={selectedTask}
                   onAddChecklist={handleAddChecklist}
                   onOpenChecklist={handleOpenChecklist}
@@ -365,6 +364,12 @@ export default function TasksPage() {
                   onOpenItpDoc={() => setItpOpen(true)}
                   canEdit={canEdit}
                 />
+            ) : (
+              <TaskTableView task={selectedTask} members={members}
+                onOpenChecklist={(id) => setOpenChecklistId(id)} onOpenInspection={(id) => setOpenInspectionId(id)} />
+            )}
+
+            {/* The ITP, checklists and inspections open over either view */}
                 {itpOpen && selectedTask.itp && (
                   <ItpDetail task={selectedTask} itp={selectedTask.itp} canEdit={canEdit}
                     onClose={() => setItpOpen(false)} onSave={(itp) => updateTask({ ...selectedTask, itp })} />
@@ -400,10 +405,6 @@ export default function TasksPage() {
                     />
                   ) : null
                 })()}
-              </>
-            ) : (
-              <TaskTableView task={selectedTask} members={members} />
-            )}
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
