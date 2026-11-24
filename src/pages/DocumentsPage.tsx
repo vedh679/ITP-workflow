@@ -128,8 +128,8 @@ export default function DocumentsPage() {
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <AppHeader active="documents" />
 
-      <div className="px-10 pt-1 pb-3 flex items-center justify-between gap-4 flex-wrap flex-shrink-0">
-        <div className="flex items-center gap-3 min-w-0 flex-wrap">
+      <div className={`pt-1 pb-3 flex items-center justify-between gap-4 flex-shrink-0 ${category === null ? 'px-[max(2.5rem,calc((100%-64rem)/2))]' : 'px-10 flex-wrap'}`}>
+        <div className={`flex items-center gap-3 min-w-0 ${category === null ? 'flex-1' : 'flex-wrap'}`}>
           {category && (
             <button onClick={() => { setCategory(null); setSelectedId(null); setSearch(''); setShowArchived(false) }}
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition-colors">
@@ -137,8 +137,8 @@ export default function DocumentsPage() {
               All categories
             </button>
           )}
-          <h1 className="text-2xl font-medium tracking-tight text-ink">{category ? pluralCategory(category) : 'Document Register'}</h1>
-          <p className="text-sm text-slate-400 truncate">
+          <h1 className="text-2xl font-medium tracking-tight text-ink whitespace-nowrap flex-shrink-0">{category ? pluralCategory(category) : 'Document Register'}</h1>
+          <p className="text-sm text-slate-400 truncate min-w-0">
             {category ? CORE_CATEGORIES.find((c) => c.key === category)?.blurb : 'Where the team keeps its up-to-date documents'}
             {' · '}<span className="text-slate-200 font-medium">{project.name}</span>
           </p>
@@ -209,6 +209,7 @@ export default function DocumentsPage() {
       {category === null ? (
         /* ── Category tiles ── */
         <div className="flex-1 overflow-y-auto px-10 pb-10">
+        <div className="max-w-5xl mx-auto">
           {active.length === 0 && (
             <div className="mb-5 rounded-3xl border border-dashed border-slate-600 bg-slate-900 px-6 py-8 text-center">
               <p className="text-sm font-semibold text-ink">Your register is empty</p>
@@ -244,6 +245,7 @@ export default function DocumentsPage() {
               )
             })}
           </div>
+        </div>
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden border-t border-slate-800">
