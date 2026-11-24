@@ -4,7 +4,7 @@ import AppHeader from '../components/AppHeader'
 
 export default function ProjectSelectPage() {
   const navigate = useNavigate()
-  const { currentUser, projects, setCurrentProjectId, setCurrentUser } = useAppStore()
+  const { currentUser, projects, setCurrentProjectId } = useAppStore()
 
   if (!currentUser) return <Navigate to="/" replace />   // signed out
 
@@ -14,11 +14,6 @@ export default function ProjectSelectPage() {
   const handleSelect = (projectId: string) => {
     setCurrentProjectId(projectId)
     navigate('/home')
-  }
-
-  const handleSignOut = () => {
-    setCurrentUser(null)
-    navigate('/')
   }
 
   return (

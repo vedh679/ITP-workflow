@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { isManager } from '../workflow'
@@ -60,7 +60,6 @@ function descendantsOf(id: string, parentOf: Record<string, string | null>): Set
 }
 
 export default function OrganisationPage() {
-  const navigate = useNavigate()
   const { currentUser, currentProjectId, projects, members, tasks, projectOrg, setProjectOrgEntry } = useAppStore()
   const [editing, setEditing] = useState(false)
 

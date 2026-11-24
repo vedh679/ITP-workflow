@@ -27,7 +27,6 @@ export const roleChipSelected = (role: UserRole) =>
 
 type U = Pick<AppUser, 'role'> | null | undefined
 
-export const isIT = (u: U) => u?.role === 'it'
 /** IT works across all projects rather than inside one */
 export const isCentral = (u: U) => u?.role === 'it'
 /** Members, projects, workflows */

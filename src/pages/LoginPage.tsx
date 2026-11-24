@@ -7,7 +7,7 @@ import { isCentral, roleChip, ROLE_LABEL } from '../access'
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
-  const { members, projects, setCurrentUser, setCurrentProjectId } = useAppStore()
+  const { members, setCurrentUser, setCurrentProjectId } = useAppStore()
   const navigate = useNavigate()
 
   const handleLogin = (e: React.FormEvent) => {

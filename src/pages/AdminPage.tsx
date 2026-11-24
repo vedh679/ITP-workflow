@@ -1,6 +1,6 @@
 import AppHeader from '../components/AppHeader'
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import BmsPanel from './BmsPanel'
 import WorkflowPanel from './WorkflowPanel'
@@ -381,7 +381,6 @@ function EmptyState({ label }: { label: string }) {
 // Main AdminPage
 // ─────────────────────────────────────────────────────────────────
 export default function AdminPage() {
-  const navigate = useNavigate()
   const currentUser = useAppStore((s) => s.currentUser)
   const [tab, setTab] = useState<Tab>('bms')
 

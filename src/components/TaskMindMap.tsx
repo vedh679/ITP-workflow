@@ -310,8 +310,6 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onA
     const CHECKLIST_X = ROOT_X + 320
     const TRUNK_LEFT_X = ROOT_X - 40   // left-hand spine (inspections)
     const INSPECTION_X = ROOT_X - 320  // 240px wide nodes end 80px left of the root
-    const NODE_HEIGHT = 80 // approximate height of checklist node
-    const NODE_CENTER = NODE_HEIGHT / 2
 
     const checklists = task.checklists
     const inspections = task.inspections ?? []

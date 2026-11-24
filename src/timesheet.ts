@@ -44,9 +44,11 @@ export function fmtHours(h: number): string {
   return mm === 0 ? `${hh}h` : hh === 0 ? `${mm}m` : `${hh}h ${mm}m`
 }
 
-export const dayLabel = (iso: string) => fromISO(iso).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' })
 export const rangeLabel = (weekStart: string) => {
   const a = fromISO(weekStart), b = fromISO(addDays(weekStart, 6))
   const f = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
   return `${f(a)} – ${f(b)} ${b.getFullYear()}`
 }
+
+/** First day of the month n months from the given month start */
+export const shiftMonth = (monthStart: string, n: number) => { const d = fromISO(monthStart); d.setMonth(d.getMonth() + n, 1); return toISO(d) }

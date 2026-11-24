@@ -14,7 +14,7 @@ interface Props {
 type Step = 1 | 2 | 3
 
 // ── Step indicator ────────────────────────────────────────────────
-function StepBar({ step, total, requiresSignature }: { step: Step; total: number; requiresSignature: boolean }) {
+function StepBar({ step, requiresSignature }: { step: Step; requiresSignature: boolean }) {
   const steps = [
     { n: 1 as Step, label: 'Checks' },
     { n: 2 as Step, label: 'Attachments' },
@@ -630,7 +630,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
         </div>
 
         {/* Row 2: step bar */}
-        <StepBar step={step} total={liveChecklist.items.length} requiresSignature={liveChecklist.requiresSignature} />
+        <StepBar step={step} requiresSignature={liveChecklist.requiresSignature} />
       </div>
 
       {/* ── Reassign modal ── */}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import type { Task, ChecklistTemplate, Inspection } from '../types'
 import TaskMindMap from '../components/TaskMindMap'
@@ -29,7 +29,6 @@ function formatDate(iso: string) {
 }
 
 export default function TasksPage() {
-  const navigate = useNavigate()
   const { currentUser, currentProjectId, members, tasks, templates, addTask, updateTask } = useAppStore()
 
   // Build name lookup from live members list

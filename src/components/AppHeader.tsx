@@ -43,9 +43,10 @@ export default function AppHeader({ active }: { active: Active }) {
     <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 xl:gap-4 px-4 lg:px-10 py-3 flex-shrink-0">
       <div className="flex items-center gap-3 justify-self-start">
         <Logo size={32} />
-        <ProjectSwitcher variant="header" />
+        {active !== 'none' && <ProjectSwitcher variant="header" />}
       </div>
 
+      {active === 'none' ? <div /> : (
       <nav className="flex items-center gap-1 bg-slate-800 rounded-full p-0.5">
         {tabs.map((t) => {
           const dot = t.badge ? <span className="ml-2 inline-flex min-w-[18px] h-[18px] px-1 items-center justify-center rounded-full bg-coral text-white text-[11px] font-bold">{t.badge}</span> : null
@@ -54,6 +55,7 @@ export default function AppHeader({ active }: { active: Active }) {
             : <button key={t.key} onClick={() => go(t.key, t.path)} className={`${pill} text-slate-300 hover:text-ink hover:bg-white inline-flex items-center`}>{t.label}{dot}</button>
         })}
       </nav>
+      )}
 
       <div className="flex items-center gap-3 justify-self-end">
         <div className="text-right hidden xl:block whitespace-nowrap">

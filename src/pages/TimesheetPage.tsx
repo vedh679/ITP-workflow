@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { canAccessTimesheet, isCentral } from '../access'
-import { addDays, fmtHours, fromISO, projectCodeOf, rangeLabel, sessionHours, sessionProblem, toISO, weekDays, weekStartOf } from '../timesheet'
+import { addDays, fmtHours, fromISO, projectCodeOf, rangeLabel, sessionHours, sessionProblem, shiftMonth, toISO, weekDays, weekStartOf } from '../timesheet'
 import type { TimesheetSession } from '../types'
 
 // A weekly timesheet laid out as a table: one row per day, two halves per day, and in each half
@@ -14,6 +14,8 @@ export default function TimesheetPage() {
   const { currentUser, projects, timesheetDays, timesheetSubmissions, setTimesheetSession, submitTimesheetWeek, reopenTimesheetWeek } = useAppStore()
   const today = toISO(new Date())
   const [weekStart, setWeekStart] = useState(weekStartOf(today))
+  const [view, setView] = useState<'week' | 'month'>('week')
+  const [monthStart, setMonthStart] = useState(() => today.slice(0, 8) + '01')
 
   if (!currentUser) return <Navigate to="/" replace />   // signed out
 
@@ -42,8 +44,13 @@ export default function TimesheetPage() {
   }
 
   const submission = timesheetSubmissions.find((s) => s.userId === currentUser.id && s.weekStart === weekStart)
-  const locked = !!submission
   const isThisWeek = weekStart === weekStartOf(today)
+  // Only last week, this week and next week can be filled in (for when someone forgot); anything older or further ahead is view-only
+  const thisWeek = weekStartOf(today)
+  const canEditWeek = (w: string) => w >= addDays(thisWeek, -7) && w <= addDays(thisWeek, 7)
+  const outside = !canEditWeek(weekStart)
+  const submitted = !!submission
+  const locked = submitted || outside
 
   const set = (date: string, index: 0 | 1, patch: Partial<TimesheetSession>) => setTimesheetSession(currentUser.id, date, index, patch)
   const clearDay = (date: string) => { set(date, 0, { ...BLANK }); set(date, 1, { ...BLANK }) }
@@ -97,6 +104,73 @@ export default function TimesheetPage() {
     )
   }
 
+  // Month view: every filled-in day and each week's status, read-only. Click a day to open its week.
+  const monthFirst = monthStart
+  const monthLast = addDays(shiftMonth(monthStart, 1), -1)
+  const gridStart = weekStartOf(monthFirst)
+  const gridWeeks: string[] = []
+  for (let w = gridStart; w <= monthLast; w = addDays(w, 7)) gridWeeks.push(w)
+  const dayStats = (date: string) => {
+    const ss = sessionsOf(date)
+    const hours = ss.reduce((n, x) => n + sessionHours(x), 0)
+    const codes = [...new Set(ss.filter((x) => sessionHours(x) > 0 && x.code.trim()).map((x) => x.code.trim().toUpperCase()))]
+    return { hours, codes, filled: ss.some((x) => x.in || x.out || x.code) }
+  }
+  const monthDates = gridWeeks.flatMap((w) => weekDays(w)).filter((d) => d >= monthFirst && d <= monthLast)
+  const monthHours = monthDates.reduce((n, d) => n + dayStats(d).hours, 0)
+  const monthDaysWorked = monthDates.filter((d) => dayStats(d).hours > 0).length
+  const monthWeeksSubmitted = gridWeeks.filter((w) => timesheetSubmissions.some((x) => x.userId === currentUser.id && x.weekStart === w)).length
+  const monthView = (
+    <>
+      <div className="grid gap-4 mt-4 grid-cols-2 lg:grid-cols-4">
+        {[['Hours this month', fmtHours(monthHours)], ['Days worked', String(monthDaysWorked)], ['Weeks submitted', `${monthWeeksSubmitted}/${gridWeeks.length}`], ['Mode', 'View only']].map(([k, v]) => (
+          <div key={k} className="bg-slate-900 border border-slate-800 rounded-3xl px-5 py-4">
+            <p className="text-sm text-slate-400">{k}</p>
+            <p className="text-3xl font-bold tracking-tight mt-1 text-ink">{v}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-6 border border-slate-800 rounded-3xl overflow-hidden overflow-x-auto bg-white">
+        <div className="min-w-[820px]">
+          <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_120px] bg-slate-900 border-b border-slate-800">
+            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Week'].map((h) => <div key={h} className={`${th} text-center`}>{h}</div>)}
+          </div>
+          {gridWeeks.map((w) => {
+            const sub = timesheetSubmissions.some((x) => x.userId === currentUser.id && x.weekStart === w)
+            const wh = weekDays(w).reduce((n, d) => n + dayStats(d).hours, 0)
+            return (
+              <div key={w} className="grid grid-cols-[repeat(7,minmax(0,1fr))_120px] border-t border-slate-800">
+                {weekDays(w).map((d) => {
+                  const inMonth = d >= monthFirst && d <= monthLast
+                  const st = dayStats(d)
+                  return (
+                    <button key={d} onClick={() => { setWeekStart(w); setCopied(''); setView('week') }} title="Open this week"
+                      className={`text-left min-h-[92px] p-2 border-l first:border-l-0 border-slate-800 hover:bg-slate-900 transition-colors ${d === today ? 'bg-slate-900' : ''} ${inMonth ? '' : 'opacity-40'}`}>
+                      <span className={`text-xs font-semibold ${d === today ? 'text-white bg-ink rounded-full px-1.5 py-0.5' : 'text-slate-400'}`}>{fromISO(d).getDate()}</span>
+                      {st.filled && (
+                        <div className="mt-1.5">
+                          <p className="text-sm font-bold text-ink">{st.hours > 0 ? fmtHours(st.hours) : '—'}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {st.codes.map((c) => <span key={c} className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-coral-tint text-coral-dark">{c}</span>)}
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+                <div className="border-l-2 border-slate-800 p-2 bg-slate-900/50 flex flex-col justify-center text-center">
+                  <p className="text-sm font-bold text-ink">{wh > 0 ? fmtHours(wh) : '—'}</p>
+                  <span className={`mt-1 mx-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${sub ? 'bg-green-100 text-green-700' : wh > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-800 text-slate-500'}`}>{sub ? 'Submitted' : wh > 0 ? 'Draft' : 'Empty'}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-slate-500">The month view is for looking back only. Click a day to open its week — it can be changed there only if it is last week, this week or next week.</p>
+    </>
+  )
+
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <AppHeader active="timesheet" />
@@ -108,13 +182,40 @@ export default function TimesheetPage() {
               <h1 className="text-2xl font-medium tracking-tight text-ink">My Timesheet</h1>
               <p className="text-sm text-slate-400 mt-0.5">Fill in your IN and OUT times and project code for each half of the day, {currentUser.name.split(' ')[0]}</p>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => { setWeekStart(addDays(weekStart, -7)); setCopied('') }} className={iconBtn} title="Previous week">‹</button>
-              <div className="px-4 py-2 rounded-full bg-slate-800 text-sm font-medium text-slate-200 min-w-[190px] text-center">{rangeLabel(weekStart)}</div>
-              <button onClick={() => { setWeekStart(addDays(weekStart, 7)); setCopied('') }} className={iconBtn} title="Next week">›</button>
-              {!isThisWeek && <button onClick={() => setWeekStart(weekStartOf(today))} className="px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-sm font-medium text-slate-200">This week</button>}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-0.5 bg-slate-800 rounded-full p-0.5 mr-1">
+                {(['week', 'month'] as const).map((v) => (
+                  <button key={v} onClick={() => { setView(v); if (v === 'month') setMonthStart(weekStart.slice(0, 8) + '01') }}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${view === v ? 'bg-ink text-white' : 'text-slate-300 hover:text-ink hover:bg-white'}`}>{v === 'week' ? 'Week' : 'Month'}</button>
+                ))}
+              </div>
+              {view === 'week' ? (
+                <>
+                  <button onClick={() => { setWeekStart(addDays(weekStart, -7)); setCopied('') }} className={iconBtn} title="Previous week">‹</button>
+                  <div className="px-4 py-2 rounded-full bg-slate-800 text-sm font-medium text-slate-200 w-[200px] text-center whitespace-nowrap">{rangeLabel(weekStart)}</div>
+                  <button onClick={() => { setWeekStart(addDays(weekStart, 7)); setCopied('') }} className={iconBtn} title="Next week">›</button>
+                  <button onClick={() => setWeekStart(thisWeek)} tabIndex={isThisWeek ? -1 : 0} aria-hidden={isThisWeek} className={`w-[104px] py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-sm font-medium text-slate-200 ${isThisWeek ? 'invisible' : ''}`}>This week</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setMonthStart(shiftMonth(monthStart, -1))} className={iconBtn} title="Previous month">‹</button>
+                  <div className="px-4 py-2 rounded-full bg-slate-800 text-sm font-medium text-slate-200 w-[200px] text-center whitespace-nowrap">{fromISO(monthStart).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</div>
+                  <button onClick={() => setMonthStart(shiftMonth(monthStart, 1))} className={iconBtn} title="Next month">›</button>
+                  <button onClick={() => setMonthStart(today.slice(0, 8) + '01')} tabIndex={monthStart === today.slice(0, 8) + '01' ? -1 : 0} className={`w-[104px] py-2 rounded-full bg-slate-800 hover:bg-slate-700 text-sm font-medium text-slate-200 ${monthStart === today.slice(0, 8) + '01' ? 'invisible' : ''}`}>This month</button>
+                </>
+              )}
             </div>
           </div>
+
+          <p className="mt-3 text-xs text-slate-500">You can fill in last week, this week and next week, in case you forgot to. Anything older, or further ahead, is view-only.</p>
+
+          {view === 'month' ? monthView : (
+          <>
+          {outside && (
+            <p className="mt-4 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-sm text-slate-300">
+              This week is {weekStart < thisWeek ? 'older than last week' : 'more than a week ahead'}, so it is view-only. You can fill in last week, this week and next week.
+            </p>
+          )}
 
           {/* Week summary */}
           <div className="grid gap-4 mt-6 grid-cols-2 lg:grid-cols-4">
@@ -122,11 +223,11 @@ export default function TimesheetPage() {
               ['Hours this week', fmtHours(weekHours)],
               ['Days worked', String(daysWorked)],
               ['Project codes', String(byCode.size)],
-              ['Status', locked ? 'Submitted' : weekHours > 0 ? 'Draft' : 'Not started'],
+              ['Status', submitted ? 'Submitted' : outside ? 'View only' : weekHours > 0 ? 'Draft' : 'Not started'],
             ].map(([k, v]) => (
               <div key={k} className="bg-slate-900 border border-slate-800 rounded-3xl px-5 py-4">
                 <p className="text-sm text-slate-400">{k}</p>
-                <p className={`text-3xl font-bold tracking-tight mt-1 ${k === 'Status' && locked ? 'text-green-700' : 'text-ink'}`}>{v}</p>
+                <p className={`text-3xl font-bold tracking-tight mt-1 ${k === 'Status' && submitted ? 'text-green-700' : 'text-ink'}`}>{v}</p>
               </div>
             ))}
           </div>
@@ -216,10 +317,12 @@ export default function TimesheetPage() {
           {/* Submit */}
           <div className="mt-6 flex items-center gap-4 flex-wrap bg-slate-900 border border-slate-800 rounded-3xl px-6 py-5">
             <div className="flex-1 min-w-[220px]">
-              {locked ? (
+              {outside && !submitted ? (
+                <p className="text-sm text-slate-500">This week can't be changed any more.</p>
+              ) : submitted ? (
                 <>
                   <p className="text-sm font-semibold text-green-700">Week submitted</p>
-                  <p className="text-xs text-slate-500">Submitted on {new Date(submission!.submittedAt).toLocaleString()}. Reopen it if you need to make changes.</p>
+                  <p className="text-xs text-slate-500">Submitted on {new Date(submission!.submittedAt).toLocaleString()}.{outside ? '' : ' Reopen it if you need to make changes.'}</p>
                 </>
               ) : (
                 <>
@@ -230,13 +333,15 @@ export default function TimesheetPage() {
                 </>
               )}
             </div>
-            {locked ? (
+            {outside ? null : submitted ? (
               <button onClick={() => reopenTimesheetWeek(currentUser.id, weekStart)} className="px-5 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold transition-colors">Reopen week</button>
             ) : (
               <button onClick={() => submitTimesheetWeek(currentUser.id, weekStart)} disabled={weekHours === 0 || anyProblem}
                 className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">Submit week</button>
             )}
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>
