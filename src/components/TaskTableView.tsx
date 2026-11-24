@@ -3,8 +3,9 @@ import type { Task, AppUser, CustomTable } from '../types'
 import { canManageProject } from '../access'
 import { useAppStore } from '../store'
 import MemberPicker from './MemberPicker'
+import ItpDetail from './ItpDetail'
 
-type Sheet = 'itp' | 'checklists'
+type Sheet = 'itp' | 'details' | 'checklists'
 
 interface Props {
   task: Task
@@ -287,13 +288,13 @@ function ITPSheet({ task, members }: { task: Task; members: AppUser[] }) {
 
         {/* Task name */}
         <div>
-          <FieldLabel>Task Name</FieldLabel>
+          <FieldLabel>ITP Name</FieldLabel>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => name.trim() && save({ name: name.trim() })}
-            placeholder="Task name…"
+            placeholder="ITP name…"
             className={inputCls + ' text-base font-semibold'}
           />
         </div>
@@ -426,7 +427,7 @@ function ITPSheet({ task, members }: { task: Task; members: AppUser[] }) {
 // ── Sheet 2 — Checklists ─────────────────────────────────────────
 function ChecklistsSheet({ task, members }: { task: Task; members: AppUser[] }) {
   if (task.checklists.length === 0) {
-    return <EmptySheet message="No checklists attached to this task." />
+    return <EmptySheet message="No checklists attached to this ITP." />
   }
 
   return (
@@ -529,7 +530,7 @@ function buildPDF(
 
   // ── ITP header table
   const fields: [string, string][] = [
-    ['Task Name',          task.name],
+    ['ITP Name',          task.name],
     ['Description',        task.description || '—'],
     ['Location',           task.location || '—'],
     ['Due Date',           fmt(task.dueDate)],
@@ -814,6 +815,15 @@ const SHEETS: { id: Sheet; label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
+    id: 'details',
+    label: 'Details',
+    icon: (
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h10" />
+      </svg>
+    ),
+  },
+  {
     id: 'checklists',
     label: 'Checklists',
     icon: (
@@ -827,6 +837,7 @@ const SHEETS: { id: Sheet; label: string; icon: React.ReactNode }[] = [
 
 export default function TaskTableView({ task, members }: Props) {
   const currentUser = useAppStore((s) => s.currentUser)
+  const updateTask = useAppStore((s) => s.updateTask)
   const canManage = canManageProject(currentUser)
   const [sheet, setSheet] = useState<Sheet>('itp')
   const [showExport, setShowExport] = useState(false)
@@ -853,12 +864,12 @@ export default function TaskTableView({ task, members }: Props) {
         {/* Right side: row counts + export button */}
         <div className="ml-auto pb-2 flex items-center gap-3">
           <span className="text-xs text-slate-600">
-            {sheet === 'itp' && '9 fields'}
+            {sheet === 'details' && '9 fields'}
             {sheet === 'checklists' && `${task.checklists.length} row${task.checklists.length !== 1 ? 's' : ''} · 12 columns`}
           </span>
 
-          {/* Export — ITP sheet only, managers/admins only */}
-          {sheet === 'itp' && canManage && (
+          {/* Export — Details sheet only, managers/admins only */}
+          {sheet === 'details' && canManage && (
             <button
               onClick={() => setShowExport(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/15 hover:bg-blue-600/30 border border-blue-600/30 text-blue-400 hover:text-blue-300 text-xs font-semibold transition-all"
@@ -875,7 +886,10 @@ export default function TaskTableView({ task, members }: Props) {
 
       {/* Table area */}
       <div className="flex-1 overflow-hidden">
-        {sheet === 'itp'        && <ITPSheet        task={task} members={members} />}
+        {sheet === 'itp' && (task.itp
+          ? <ItpDetail key={task.id} task={task} itp={task.itp} canEdit={canManage} onSave={(itp) => updateTask({ ...task, itp })} />
+          : <p className="p-8 text-sm text-slate-500">This ITP has no inspection and test plan document. The BMS library had no published ITP template when it was created.</p>)}
+        {sheet === 'details'    && <ITPSheet        task={task} members={members} />}
         {sheet === 'checklists' && <ChecklistsSheet task={task} members={members} />}
       </div>
 

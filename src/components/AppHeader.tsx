@@ -26,7 +26,7 @@ export default function AppHeader({ active }: { active: Active }) {
 
   const tabs: { key: Active; label: string; path: string; badge?: number }[] = [
     { key: 'overview', label: 'Overview', path: '/home' },
-    ...(canAccessTasks(currentUser) ? [{ key: 'tasks' as const, label: 'Tasks', path: '/tasks' }] : []),
+    ...(canAccessTasks(currentUser) ? [{ key: 'tasks' as const, label: 'ITP', path: '/tasks' }] : []),
     ...(canAccessRegister(currentUser) ? [{ key: 'documents' as const, label: 'Document Register', path: '/documents', badge: docsBehind }] : []),
     ...(canViewOrganisation(currentUser) ? [{ key: 'organisation' as const, label: 'Organisation', path: '/organisation' }] : []),
     ...(canAccessTimesheet(currentUser) ? [{ key: 'timesheet' as const, label: 'Timesheet', path: '/timesheet' }] : []),

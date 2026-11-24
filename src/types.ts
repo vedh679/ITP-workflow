@@ -135,6 +135,18 @@ export interface CustomTable {
   rows: string[][]    // rows[r][c] = cell value
 }
 
+// An ITP's own document: it starts as a copy of the BMS ITP template, then belongs to this ITP alone
+export interface TaskItp {
+  templateId: string
+  templateRef: string        // the template's document number, e.g. BMS-TP-010
+  templateTitle: string
+  templateVersion: string    // the template version it started from
+  blocks: DocBlock[]         // its content — normally the template's, adjusted where this ITP needs it
+  fieldValues: Record<string, string>
+  updatedAt?: string
+  updatedBy?: string
+}
+
 export interface Task {
   id: string
   name: string
@@ -148,6 +160,7 @@ export interface Task {
   inspections?: Inspection[]
   createdAt: string
   customTable?: CustomTable
+  itp?: TaskItp              // this ITP's own inspection and test plan document (starts from the BMS ITP template)
   workflowId?: string        // workflow applied to this task
   workflowRun?: WorkflowRun  // progress through that workflow
 }

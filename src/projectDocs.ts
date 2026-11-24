@@ -1,4 +1,4 @@
-import type { BmsDocument, BmsCategory, ProjectDocument, ChecklistAttachment, DocBlock } from './types'
+import type { BmsDocument, BmsCategory, ProjectDocument, ChecklistAttachment, DocBlock, TaskItp } from './types'
 
 /** The categories of core document held in the BMS (checklist templates live separately) */
 export const CORE_CATEGORIES: { key: BmsCategory; blurb: string }[] = [
@@ -53,6 +53,16 @@ export const publishedDocs = (docs: BmsDocument[]) => docs.filter((d) => d.statu
 
 /** Library templates a project can pull in (checklist templates live separately) */
 export const libraryTemplates = (docs: BmsDocument[]) => publishedDocs(docs)
+
+/** A new ITP's own document, started from a BMS template */
+export const itpFromTemplate = (t: BmsDocument): TaskItp => ({
+  templateId: t.id, templateRef: t.docNumber, templateTitle: t.title, templateVersion: t.version,
+  blocks: JSON.parse(JSON.stringify(t.blocks ?? [])), fieldValues: {},
+})
+
+/** The ITP document template in the BMS library */
+export const itpTemplate = (docs: BmsDocument[]) =>
+  libraryTemplates(docs).find((t) => t.docNumber === 'BMS-TP-010') ?? libraryTemplates(docs).find((t) => t.category === 'Template' && /inspection.*test plan/i.test(t.title))
 
 export const isActive = (d: ProjectDocument) => d.status !== 'archived'
 

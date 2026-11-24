@@ -23,8 +23,8 @@ import type { Task, Inspection, InspectionType } from '../types'
 interface TaskNodeData extends Record<string, unknown> {
   label: string
   status: Task['status']
-  canEdit: boolean
-  onEdit: () => void
+  itpDoc?: { ref: string; version: string; outdated: boolean } | null
+  onOpenItpDoc?: () => void
 }
 interface ChecklistNodeData extends Record<string, unknown> {
   checklistId: string
@@ -57,8 +57,6 @@ function TaskNode({ data }: NodeProps) {
 
   return (
     <div
-      onDoubleClick={() => d.canEdit && d.onEdit()}
-      title={d.canEdit ? 'Double-click to edit' : undefined}
       style={{
         background: '#0B0B0B',
         border: `3px solid ${statusColor}`,
@@ -68,12 +66,12 @@ function TaskNode({ data }: NodeProps) {
         boxShadow: '0 12px 28px -10px rgba(0,0,0,0.45)',
         color: '#fff',
         textAlign: 'center',
-        cursor: d.canEdit ? 'pointer' : 'default',
+        cursor: 'default',
         userSelect: 'none',
       }}
     >
       <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
-        Task{d.canEdit && <span style={{ opacity: 0.5, marginLeft: 4 }}>· dbl-click to edit</span>}
+        ITP
       </div>
       <div style={{ fontWeight: 700, fontSize: 16 }}>{d.label}</div>
       <div style={{
@@ -83,6 +81,15 @@ function TaskNode({ data }: NodeProps) {
       }}>
         {d.status}
       </div>
+      {d.itpDoc && (
+        <div onClick={(e) => { e.stopPropagation(); d.onOpenItpDoc?.() }} onDoubleClick={(e) => e.stopPropagation()}
+          title="Open this ITP's inspection and test plan"
+          style={{ marginTop: 10, padding: '6px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: 11, lineHeight: 1.35 }}>
+          <div style={{ opacity: 0.6, fontSize: 9, letterSpacing: 1, textTransform: 'uppercase' }}>Inspection &amp; Test Plan · open</div>
+          <div style={{ fontWeight: 600 }}>{d.itpDoc.ref}</div>
+          <div style={{ opacity: 0.6, fontSize: 10 }}>Started from template v{d.itpDoc.version}{d.itpDoc.outdated ? ' · newer template in the library' : ''}</div>
+        </div>
+      )}
       <Handle type="source" position={Position.Right} id="right"
         style={{ background: 'transparent', border: 'none', width: 1, height: 1 }} />
       <Handle type="source" position={Position.Left} id="left"
@@ -298,11 +305,12 @@ interface Props {
   onAddInspection: (taskId: string) => void
   onOpenInspection: (inspectionId: string) => void
   inspectorNames: Record<string, string>   // member email → name
-  onEditTask: (task: Task) => void
+  itpDoc?: TaskNodeData['itpDoc']
+  onOpenItpDoc?: () => void
   canEdit?: boolean
 }
 
-export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onAddInspection, onOpenInspection, inspectorNames, onEditTask, canEdit = true }: Props) {
+export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onAddInspection, onOpenInspection, inspectorNames, canEdit = true, itpDoc, onOpenItpDoc }: Props) {
   const { initialNodes, initialEdges } = useMemo(() => {
     const SPACING_Y = 120
     const ROOT_X = 480          // leaves room for the inspections branch on the left
@@ -322,7 +330,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onA
 
     // Root centered vertically against all branches
     const rootCenterY = totalHeight / 2
-    const ROOT_NODE_HEIGHT = 110
+    const ROOT_NODE_HEIGHT = itpDoc ? 170 : 110
     const rootY = rootCenterY - ROOT_NODE_HEIGHT / 2
 
     const nodes: Node[] = [
@@ -333,8 +341,8 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onA
         data: {
           label: task.name,
           status: task.status,
-          canEdit,
-          onEdit: () => onEditTask(task),
+          itpDoc,
+          onOpenItpDoc,
         } as TaskNodeData,
         draggable: true,
       },
@@ -424,7 +432,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onA
     }
 
     return { initialNodes: nodes, initialEdges: edges }
-  }, [task, onOpenChecklist, onAddChecklist, onAddInspection, onOpenInspection, inspectorNames, canEdit])
+  }, [task, onOpenChecklist, onAddChecklist, onAddInspection, onOpenInspection, inspectorNames, canEdit, itpDoc?.ref, itpDoc?.version, itpDoc?.outdated, onOpenItpDoc])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { startRun, syncRun } from './workflow'
 import { blocksToText, field, heading, para } from './docBlocks'
+import { itpFromTemplate } from './projectDocs'
 import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow, ProjectDocument, ProjectOrgEntry, TimesheetDay, TimesheetSession, TimesheetSubmission } from './types'
 
 interface AppState {
@@ -260,7 +261,7 @@ export const useAppStore = create<AppState>()(
       currentProjectId: null,
       members: SAMPLE_MEMBERS,
       projects: SAMPLE_PROJECTS,
-      tasks: SAMPLE_TASKS,
+      tasks: SAMPLE_TASKS.map((t) => { const tpl = SAMPLE_BMS.find((b) => b.docNumber === 'BMS-TP-010'); return tpl ? { ...t, itp: itpFromTemplate(tpl) } : t }),
       templates: SAMPLE_TEMPLATES,
       bmsDocuments: SAMPLE_BMS,
       workflows: SAMPLE_WORKFLOWS,
@@ -385,7 +386,8 @@ export const useAppStore = create<AppState>()(
       // v4: the timesheet became a table with two sessions (IN / OUT / project code) per day
       // v5/v6: a project's documents became instances of BMS library templates; their name and number come from the template
       // v7: project documents have revisions and a 12-month review period
-      version: 7,
+      // v8/v9: each ITP has its own inspection and test plan document, started from the BMS ITP template
+      version: 9,
       migrate: (persisted, version) => {
         const state = persisted as { members?: { id: string; role: string }[]; currentUser?: { role: string } | null; projectOrg?: { memberId: string }[] }
         if (version < 2) {
@@ -429,6 +431,12 @@ export const useAppStore = create<AppState>()(
         if (version < 7) {
           const legacy = state as { projectDocuments?: { adoptedAt: string; fieldsUpdatedAt?: string; revision?: number; lastEditedAt?: string; versions?: unknown[] }[] }
           legacy.projectDocuments = (legacy.projectDocuments ?? []).map((d) => ({ ...d, revision: d.revision ?? 1, lastEditedAt: d.lastEditedAt ?? d.fieldsUpdatedAt ?? d.adoptedAt, versions: d.versions ?? [] }))
+        }
+        if (version < 9) {
+          // give each ITP its own document, started from the BMS ITP template
+          const legacy = state as { tasks?: { itp?: unknown; itpDocumentId?: string }[]; bmsDocuments?: BmsDocument[] }
+          const tpl = legacy.bmsDocuments?.find((b) => b.docNumber === 'BMS-TP-010')
+          legacy.tasks = (legacy.tasks ?? []).map(({ itpDocumentId: _x, ...t }) => (t.itp || !tpl ? t : { ...t, itp: itpFromTemplate(tpl) }))
         }
         return state as never
       },

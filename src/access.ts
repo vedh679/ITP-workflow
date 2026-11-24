@@ -9,8 +9,8 @@ export const ROLE_ORDER: Record<UserRole, number> = { it: 0, manager: 1, enginee
 
 export const ROLE_DESCRIPTION: Record<UserRole, string> = {
   it: 'IT access — full control of members, projects, workflows and the BMS core library.',
-  manager: 'Can create and manage tasks and checklists on their projects. No system settings.',
-  engineer: 'Can view tasks and complete checklists only.',
+  manager: 'Can create and manage ITPs and checklists on their projects. No system settings.',
+  engineer: 'Can view ITPs and complete checklists only.',
 }
 
 /** Classes for a role's avatar / chip */

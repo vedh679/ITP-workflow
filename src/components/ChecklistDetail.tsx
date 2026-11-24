@@ -498,7 +498,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
     </style></head><body>
       <p style="font-size:11px;color:#94a3b8;margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em">Inspection & Test Plan</p>
       <h1>${liveChecklist.templateName}</h1>
-      <p style="font-size:13px;color:#64748b;margin:4px 0 0">Task: <strong>${task.name}</strong>
+      <p style="font-size:13px;color:#64748b;margin:4px 0 0">ITP: <strong>${task.name}</strong>
         ${task.location ? ' &nbsp;·&nbsp; ' + task.location : ''}
         ${liveChecklist.assignedTo ? ' &nbsp;·&nbsp; Assigned to: <strong>' + (memberNameMap[liveChecklist.assignedTo] ?? liveChecklist.assignedTo) + '</strong>' : ''}
       </p>

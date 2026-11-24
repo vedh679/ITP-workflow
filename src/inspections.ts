@@ -104,7 +104,7 @@ export function buildInspectionHtml(task: Task, insp: Inspection, members: AppUs
   </style></head><body>
     <p class="muted" style="margin:0 0 6px;text-transform:uppercase;letter-spacing:.06em;font-size:11px">Inspection report · ${esc(insp.type)}</p>
     <h1>${esc(insp.title)}</h1>
-    <p class="muted">Task: <strong>${esc(task.name)}</strong> · Status: <strong>${insp.status === 'completed' ? 'Completed' : 'Open'}</strong></p>
+    <p class="muted">ITP: <strong>${esc(task.name)}</strong> · Status: <strong>${insp.status === 'completed' ? 'Completed' : 'Open'}</strong></p>
     <table class="meta">
       <tr><td>Date</td><td>${esc(d(insp.date))}</td><td>Inspected by</td><td>${esc(nameOf(insp.inspectedBy))}</td></tr>
       <tr><td>Location</td><td>${esc(insp.location || '—')}</td><td>Notes</td><td>${esc(insp.notes || '—')}</td></tr>

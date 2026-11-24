@@ -11,6 +11,8 @@ import AddInspectionModal from '../components/AddInspectionModal'
 import InspectionDetail from '../components/InspectionDetail'
 import AppHeader from '../components/AppHeader'
 import { canAccessTasks, canManageProject } from '../access'
+import { itpFromTemplate, itpTemplate, libraryTemplates } from '../projectDocs'
+import ItpDetail from '../components/ItpDetail'
 import TaskWorkflowBanner from '../components/TaskWorkflowBanner'
 
 function statusBadge(status: Task['status']) {
@@ -29,7 +31,7 @@ function formatDate(iso: string) {
 }
 
 export default function TasksPage() {
-  const { currentUser, currentProjectId, members, tasks, templates, addTask, updateTask } = useAppStore()
+  const { currentUser, currentProjectId, members, tasks, templates, addTask, updateTask, bmsDocuments } = useAppStore()
 
   // Build name lookup from live members list
   const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
@@ -42,10 +44,10 @@ export default function TasksPage() {
   const [filterMine, setFilterMine] = useState(false)
   const [showAddChecklist, setShowAddChecklist] = useState(false)
   const [openChecklistId, setOpenChecklistId] = useState<string | null>(null)
+  const [itpOpen, setItpOpen] = useState(false)
   const [openInspectionId, setOpenInspectionId] = useState<string | null>(null)
   const [showAddInspection, setShowAddInspection] = useState(false)
   const [showNewTask, setShowNewTask] = useState(false)
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [viewMode, setViewMode] = useState<'mindmap' | 'table'>('mindmap')
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
@@ -105,8 +107,11 @@ export default function TasksPage() {
   }
 
   const handleCreateTask = (fields: Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status' | 'projectId'>) => {
+    // Every new ITP gets its own inspection and test plan, started from the BMS library's ITP template
+    const template = itpTemplate(bmsDocuments)
     const task: Task = {
       id: `task-${Date.now()}`,
+      ...(template ? { itp: itpFromTemplate(template) } : {}),
       status: 'pending',
       checklists: [],
       createdAt: new Date().toISOString(),
@@ -116,13 +121,6 @@ export default function TasksPage() {
     addTask(task)
     setSelectedTaskId(task.id)
     setShowNewTask(false)
-  }
-
-  const handleSaveEdit = (fields: Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status' | 'projectId'>) => {
-    if (!editingTask) return
-    // projectId is preserved from the original task — never changed on edit
-    updateTask({ ...editingTask, ...fields })
-    setEditingTask(null)
   }
 
   return (
@@ -170,7 +168,7 @@ export default function TasksPage() {
                 <div className="w-5 h-px bg-slate-800" />
                 <button
                   onClick={() => setShowNewTask(true)}
-                  title="New task"
+                  title="New ITP"
                   className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-blue-400 hover:bg-slate-800 border border-dashed border-slate-700 hover:border-blue-600/50 transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,7 +194,7 @@ export default function TasksPage() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search tasks…"
+                  placeholder="Search ITPs…"
                   className="w-full bg-slate-800 text-slate-200 placeholder-slate-500 text-sm rounded-lg pl-9 pr-3 py-2 border border-slate-700 focus:outline-none focus:border-blue-500 transition-colors"
                 />
               </div>
@@ -213,14 +211,14 @@ export default function TasksPage() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                {filterMine ? 'My tasks only' : 'All tasks'}
+                {filterMine ? 'My ITPs only' : 'All ITPs'}
               </button>
             </div>
 
             {/* Task list */}
             <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
               {filteredTasks.length === 0 ? (
-                <p className="text-slate-500 text-xs text-center py-8">No tasks found</p>
+                <p className="text-slate-500 text-xs text-center py-8">No ITPs found</p>
               ) : (
                 filteredTasks.map((task) => (
                   <button
@@ -293,7 +291,7 @@ export default function TasksPage() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  New Task
+                  New ITP
                 </button>
               </div>
             )}
@@ -360,9 +358,17 @@ export default function TasksPage() {
                   onAddInspection={handleAddInspection}
                   onOpenInspection={(id) => setOpenInspectionId(id)}
                   inspectorNames={memberNameMap}
-                  onEditTask={(t) => canEdit && setEditingTask(t)}
+                  itpDoc={selectedTask.itp ? {
+                    ref: `${selectedTask.itp.templateRef} · ${selectedTask.itp.templateTitle}`, version: selectedTask.itp.templateVersion,
+                    outdated: libraryTemplates(bmsDocuments).some((t) => t.id === selectedTask.itp!.templateId && t.version !== selectedTask.itp!.templateVersion),
+                  } : null}
+                  onOpenItpDoc={() => setItpOpen(true)}
                   canEdit={canEdit}
                 />
+                {itpOpen && selectedTask.itp && (
+                  <ItpDetail task={selectedTask} itp={selectedTask.itp} canEdit={canEdit}
+                    onClose={() => setItpOpen(false)} onSave={(itp) => updateTask({ ...selectedTask, itp })} />
+                )}
                 {openInspectionId && (() => {
                   const insp = (selectedTask.inspections ?? []).find((i) => i.id === openInspectionId)
                   return insp ? (
@@ -408,7 +414,7 @@ export default function TasksPage() {
                     d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
-              <p className="text-slate-500 text-sm">Select a task to view</p>
+              <p className="text-slate-500 text-sm">Select an ITP to view</p>
             </div>
           </div>
         )}
@@ -435,21 +441,6 @@ export default function TasksPage() {
         <NewTaskModal
           onAdd={handleCreateTask}
           onClose={() => setShowNewTask(false)}
-        />
-      )}
-
-      {/* Edit task modal */}
-      {editingTask && (
-        <NewTaskModal
-          initialValues={{
-            name: editingTask.name,
-            description: editingTask.description,
-            location: editingTask.location,
-            dueDate: editingTask.dueDate,
-            assignedTo: editingTask.assignedTo,
-          }}
-          onAdd={handleSaveEdit}
-          onClose={() => setEditingTask(null)}
         />
       )}
     </div>

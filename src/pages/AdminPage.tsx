@@ -260,7 +260,7 @@ function ProjectsPanel() {
   }
 
   const handleDelete = (id: string) => {
-    if (!confirm('Delete this project? Tasks assigned to it will still exist.')) return
+    if (!confirm('Delete this project? ITPs assigned to it will still exist.')) return
     deleteProject(id)
     setSelectedId(projects.find((p) => p.id !== id)?.id ?? null)
   }

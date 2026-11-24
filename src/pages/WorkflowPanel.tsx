@@ -206,7 +206,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
                         {approvers.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}
                       </select></div>
                   ) : (
-                    <p className="text-xs text-slate-400">The project manager sends the work to the client, then records the client's decision here in the task.</p>
+                    <p className="text-xs text-slate-400">The project manager sends the work to the client, then records the client's decision here in the ITP.</p>
                   )}
                   <p className="text-xs text-slate-500">Connect the <span style={{ color: YES }}>Yes</span> handle (bottom) and the <span style={{ color: NO }}>No</span> handle (right) to the steps that follow each decision. A No path can loop back to an earlier step for rework.</p>
                 </>

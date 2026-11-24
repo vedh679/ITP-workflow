@@ -2,26 +2,25 @@ import { useState } from 'react'
 import { useAppStore } from '../store'
 import type { Task } from '../types'
 import MemberPicker from './MemberPicker'
+import { itpTemplate } from '../projectDocs'
 
 type TaskFields = Omit<Task, 'id' | 'createdAt' | 'checklists' | 'status' | 'projectId'>
 
 interface Props {
-  initialValues?: Partial<TaskFields>
   onAdd: (task: TaskFields) => void
   onClose: () => void
 }
 
-export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
-  const { members, currentProjectId, workflows } = useAppStore()
-  const [name, setName] = useState(initialValues?.name ?? '')
-  const [description, setDescription] = useState(initialValues?.description ?? '')
-  const [location, setLocation] = useState(initialValues?.location ?? '')
-  const [dueDate, setDueDate] = useState(initialValues?.dueDate ?? '')
-  const [assignedTo, setAssignedTo] = useState(initialValues?.assignedTo ?? '')
+export default function NewTaskModal({ onAdd, onClose }: Props) {
+  const { members, currentProjectId, workflows, bmsDocuments } = useAppStore()
+  const template = itpTemplate(bmsDocuments)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [location, setLocation] = useState('')
+  const [dueDate, setDueDate] = useState('')
+  const [assignedTo, setAssignedTo] = useState('')
   // New tasks pick up the first workflow by default so the ITP process applies automatically
   const [workflowId, setWorkflowId] = useState(workflows[0]?.id ?? '')
-
-  const isEdit = !!initialValues
 
   // Only show members belonging to the active project
   const visibleMembers = currentProjectId
@@ -33,7 +32,7 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
-    onAdd({ name: name.trim(), description, location, dueDate, assignedTo, ...(!isEdit && workflowId ? { workflowId } : {}) })
+    onAdd({ name: name.trim(), description, location, dueDate, assignedTo, ...(workflowId ? { workflowId } : {}) })
   }
 
   return (
@@ -41,7 +40,7 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
       <div className="bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl w-full max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-ink">{isEdit ? 'Edit Task' : 'New Task'}</h2>
+          <h2 className="text-lg font-bold text-ink">New ITP</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-ink transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -55,7 +54,7 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
             {/* Task name */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">
-                Task name <span className="text-red-400">*</span>
+                ITP name <span className="text-red-400">*</span>
               </label>
               <input
                 autoFocus
@@ -120,8 +119,17 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
               </div>
             </div>
 
+            {/* The ITP document template this ITP is created from */}
+            {(
+              <p className="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2.5 text-xs text-slate-300">
+                {template
+                  ? <>Starts from the BMS library template <span className="font-semibold text-ink">{template.title}</span> ({template.docNumber} · v{template.version}). The ITP gets its own copy, so its content can be adjusted for this ITP.</>
+                  : 'The BMS library has no published ITP template yet, so this ITP will not be linked to one.'}
+              </p>
+            )}
+
             {/* Workflow — applied automatically to new tasks */}
-            {!isEdit && workflows.length > 0 && (
+            {workflows.length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1.5">Workflow</label>
                 <select value={workflowId} onChange={(e) => setWorkflowId(e.target.value)}
@@ -158,7 +166,7 @@ export default function NewTaskModal({ initialValues, onAdd, onClose }: Props) {
               disabled={!canSubmit}
               className="flex-1 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
             >
-              {isEdit ? 'Save Changes' : 'Create Task'}
+              Create ITP
             </button>
           </div>
         </form>

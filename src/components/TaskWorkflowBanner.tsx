@@ -30,7 +30,7 @@ export default function TaskWorkflowBanner({ task, onOpenChecklist }: Props) {
     const chosen = workflows.find((w) => w.id === (pickedWorkflow || workflows[0].id))!
     return (
       <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2 border-b border-slate-800 bg-slate-900/60">
-        <span className="text-xs text-slate-400">No workflow applied to this task</span>
+        <span className="text-xs text-slate-400">No workflow applied to this ITP</span>
         <select value={chosen.id} onChange={(e) => setPickedWorkflow(e.target.value)}
           className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none">
           {workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}

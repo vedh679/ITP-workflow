@@ -110,7 +110,7 @@ export default function HomePage() {
         {canAccessTasks(currentUser) && (
         <div className="grid gap-5 mt-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Kpi icon={icon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2')}
-            label="Active tasks" value={active.length} caption={`of ${scoped.length} total`} />
+            label="Active ITPs" value={active.length} caption={`of ${scoped.length} total`} />
           <Kpi icon={icon('M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}
             label={isManager(currentUser) ? 'Awaiting your action' : 'Awaiting PM'} value={awaiting.length}
             caption={awaiting.length > 0 ? 'ready for next stage' : 'all clear'} tone={awaiting.length > 0 ? 'warn' : undefined} />
@@ -131,8 +131,8 @@ export default function HomePage() {
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
             </div>
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-ink">Tasks</h3>
-              <p className="text-slate-400 text-sm mt-0.5">{currentUser.role === 'engineer' ? 'View tasks & complete checklists' : 'View & manage inspection tasks'}</p>
+              <h3 className="text-xl font-bold text-ink">ITP</h3>
+              <p className="text-slate-400 text-sm mt-0.5">{currentUser.role === 'engineer' ? 'View ITPs & complete checklists' : 'View & manage inspection and test plans'}</p>
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>
