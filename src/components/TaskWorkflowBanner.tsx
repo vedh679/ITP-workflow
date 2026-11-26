@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAppStore } from '../store'
 import { KIND_META, WorkflowDiagram } from './WorkflowFlow'
-import { canActOnStep, completeStep, initiateLabel, initiateStep, isClientApproval, isManager, startRun } from '../workflow'
+import { canActOnStep, completeStep, initiateLabel, initiateStep, isClientApproval, startRun } from '../workflow'
+import { can } from '../access'
 import type { Task, WorkflowLogOutcome } from '../types'
 
 const OUTCOME_TEXT: Record<WorkflowLogOutcome, string> = {
@@ -21,7 +22,8 @@ export default function TaskWorkflowBanner({ task, onOpenChecklist }: Props) {
   const [note, setNote] = useState('')
   const [pickedWorkflow, setPickedWorkflow] = useState('')
 
-  const manager = isManager(currentUser)
+  const project = useAppStore((s) => s.projects.find((p) => p.id === task.projectId))
+  const manager = can(currentUser, project, 'workflow.run')
   const run = task.workflowRun
 
   // ── No workflow yet ──
@@ -56,7 +58,7 @@ export default function TaskWorkflowBanner({ task, onOpenChecklist }: Props) {
   const checklist = run.currentChecklistId ? task.checklists.find((c) => c.id === run.currentChecklistId) : undefined
   const meta = node ? KIND_META[node.data.kind] : null
   const awaiting = run.status === 'awaiting-initiation'
-  const canAct = !!node && !!currentUser && canActOnStep(currentUser, task, node, members)
+  const canAct = !!node && !!currentUser && canActOnStep(currentUser, task, node, members, manager)
 
   const btn = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors'
 

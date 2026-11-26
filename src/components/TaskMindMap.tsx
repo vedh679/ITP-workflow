@@ -307,10 +307,11 @@ interface Props {
   inspectorNames: Record<string, string>   // member email → name
   itpDoc?: TaskNodeData['itpDoc']
   onOpenItpDoc?: () => void
-  canEdit?: boolean
+  canAddChecklist: boolean
+  canAddInspection: boolean
 }
 
-export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onAddInspection, onOpenInspection, inspectorNames, canEdit = true, itpDoc, onOpenItpDoc }: Props) {
+export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onAddInspection, onOpenInspection, inspectorNames, canAddChecklist, canAddInspection, itpDoc, onOpenItpDoc }: Props) {
   const { initialNodes, initialEdges } = useMemo(() => {
     const SPACING_Y = 120
     const ROOT_X = 480          // leaves room for the inspections branch on the left
@@ -382,7 +383,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onA
     })
 
     // Add button — only visible to admins and managers
-    if (canEdit) {
+    if (canAddChecklist) {
       const addY = rightStart + checklists.length * SPACING_Y
       nodes.push({
         id: 'add-node',
@@ -417,7 +418,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onA
         style: { stroke: '#B8B8B8', strokeWidth: 1.5 },
       })
     })
-    if (canEdit) {
+    if (canAddInspection) {
       nodes.push({
         id: 'add-inspection-node', type: 'addInspectionNode',
         position: { x: INSPECTION_X, y: leftStart + inspections.length * SPACING_Y },
@@ -432,7 +433,7 @@ export default function TaskMindMap({ task, onAddChecklist, onOpenChecklist, onA
     }
 
     return { initialNodes: nodes, initialEdges: edges }
-  }, [task, onOpenChecklist, onAddChecklist, onAddInspection, onOpenInspection, inspectorNames, canEdit, itpDoc?.ref, itpDoc?.version, itpDoc?.outdated, onOpenItpDoc])
+  }, [task, onOpenChecklist, onAddChecklist, onAddInspection, onOpenInspection, inspectorNames, canAddChecklist, canAddInspection, itpDoc?.ref, itpDoc?.version, itpDoc?.outdated, onOpenItpDoc])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)

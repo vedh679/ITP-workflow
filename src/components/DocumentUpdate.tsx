@@ -134,7 +134,7 @@ export default function DocumentUpdate({ name, number, instance, template, canWo
               <span className="text-xs text-slate-500 ml-auto">{canApprove ? `Revision ${revision} is kept as it was.` : `Revision ${revision} stays current until this is approved.`}</span>
             </div>
           </>
-        ) : <p className="text-sm text-slate-500">Only the project manager can apply this update.</p>}
+        ) : <p className="text-sm text-slate-500">You need "Edit & update" permission to apply this update.</p>}
       </div>
     </div>
   )

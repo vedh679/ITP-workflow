@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import type { Task, TaskChecklist, ChecklistAttachment } from '../types'
-import { canManageProject } from '../access'
+import { can, isProjectAdmin } from '../access'
+import { SignatureModal } from './Signature'
 import { useAppStore } from '../store'
 import MemberPicker from './MemberPicker'
 
@@ -136,10 +137,12 @@ function PageAttachments({
   checklist,
   onAddAttachments,
   onRemoveAttachment,
+  readOnly,
 }: {
   checklist: TaskChecklist
   onAddAttachments: (files: ChecklistAttachment[]) => void
   onRemoveAttachment: (id: string) => void
+  readOnly: boolean
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -184,7 +187,7 @@ function PageAttachments({
         <p className="text-slate-400 text-sm mb-6">Upload any photos, drawings, or documents relevant to this inspection.</p>
 
         {/* Drop zone */}
-        <div
+        {!readOnly && <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
           onDrop={(e) => {
@@ -227,7 +230,7 @@ function PageAttachments({
             className="hidden"
             onChange={(e) => readFiles(e.target.files)}
           />
-        </div>
+        </div>}
 
         {/* Uploaded files */}
         {attachments.length > 0 && (
@@ -252,7 +255,7 @@ function PageAttachments({
                   <p className="text-xs text-slate-600 mt-0.5">{att.mimeType || 'Unknown type'}</p>
                 </div>
 
-                <button
+                {!readOnly && <button
                   type="button"
                   onClick={() => onRemoveAttachment(att.id)}
                   className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-900/20 transition-colors"
@@ -261,7 +264,7 @@ function PageAttachments({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                </button>
+                </button>}
               </div>
             ))}
           </div>
@@ -274,14 +277,17 @@ function PageAttachments({
 // ── Page 3 — Sign off / Complete ──────────────────────────────────
 function PageSignOff({
   checklist,
+  canSign,
+  canClear,
   onSign,
   onClearSignature,
 }: {
   checklist: TaskChecklist
-  onSign: (name: string) => void
+  canSign: boolean
+  canClear: boolean
+  onSign: () => void
   onClearSignature: () => void
 }) {
-  const [signerName, setSignerName] = useState('')
   const isSigned = !!checklist.signature
   const allDone = checklist.items.every((i) => i.completed)
 
@@ -354,40 +360,23 @@ function PageSignOff({
                 </p>
               </div>
             </div>
-            <button
+            {checklist.signature.image && <img src={checklist.signature.image} alt={`Signature of ${checklist.signature.name}`} className="h-16 mb-4 bg-white rounded-xl" />}
+            {canClear && <button
               type="button"
               onClick={onClearSignature}
               className="w-full py-2 rounded-xl border border-slate-700 text-slate-500 hover:text-red-400 hover:border-red-900/40 text-sm transition-colors"
             >
               Clear signature
-            </button>
+            </button>}
           </div>
         ) : (
-          <div className="bg-slate-900 border border-amber-900/30 rounded-3xl p-5 space-y-3">
-            <label className="block text-sm font-medium text-slate-300">
-              Your full name
-            </label>
-            <input
-              autoFocus
-              type="text"
-              value={signerName}
-              onChange={(e) => setSignerName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && signerName.trim()) onSign(signerName.trim()) }}
-              placeholder="Enter your full name to sign…"
-              className="w-full bg-slate-800 text-slate-100 placeholder-slate-500 rounded-xl px-4 py-3 border border-amber-800/50 focus:outline-none focus:border-amber-500 text-sm transition-colors"
-            />
-            <button
-              type="button"
-              onClick={() => signerName.trim() && onSign(signerName.trim())}
-              disabled={!signerName.trim()}
-              className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-              Confirm signature
-            </button>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-center">
+            {canSign ? (
+              <>
+                <button type="button" onClick={onSign} className="w-full py-3 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-bold transition-colors">Sign</button>
+                <p className="text-xs text-slate-500 mt-2">Adds your stored signature, your name and the time.</p>
+              </>
+            ) : <p className="text-sm text-slate-500">Only the assignee, or someone with "Sign off" permission, can sign this checklist.</p>}
           </div>
         )}
       </div>
@@ -404,7 +393,9 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  const canManage = canManageProject(currentUser)
+  const [needSignature, setNeedSignature] = useState(false)
+  const project = useAppStore((s) => s.projects.find((p) => p.id === task.projectId))
+  const canManage = can(currentUser, project, 'checklist.manage')
 
   const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
 
@@ -423,7 +414,15 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
     })
   }
 
+  // the assignee can always complete and sign their own checklist
+  const isAssignee = !!currentUser && liveChecklist.assignedTo === currentUser.email
+  const canComplete = isAssignee || can(currentUser, project, 'checklist.complete')
+  const canSign = isAssignee || can(currentUser, project, 'checklist.sign')
+  const signed = liveChecklist.signature
+  const canClear = !!signed && !!currentUser && ((signed.by ? signed.by === currentUser.id : signed.name === currentUser.name) || isProjectAdmin(currentUser, project))
+
   const toggleItem = (itemId: string) => {
+    if (!canComplete) return
     updateChecklist({
       items: liveChecklist.items.map((it) =>
         it.id === itemId ? { ...it, completed: !it.completed } : it
@@ -439,8 +438,10 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
     updateChecklist({ attachments: (liveChecklist.attachments ?? []).filter((a) => a.id !== id) })
   }
 
-  const sign = (name: string) => {
-    updateChecklist({ signature: { name, date: new Date().toISOString() } })
+  const sign = () => {
+    if (!currentUser || !canSign) return
+    if (!currentUser.signature) { setNeedSignature(true); return }
+    updateChecklist({ signature: { name: currentUser.name, by: currentUser.id, image: currentUser.signature.image, date: new Date().toISOString() } })
   }
 
   const clearSignature = () => {
@@ -483,7 +484,7 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
 
     const sigSection = liveChecklist.requiresSignature
       ? liveChecklist.signature
-        ? `<p style="font-size:13px"><strong>Signed by:</strong> ${liveChecklist.signature.name} &nbsp;·&nbsp;
+        ? `${liveChecklist.signature.image ? `<img src="${liveChecklist.signature.image}" alt="Signature" style="display:block;height:56px">` : ''}<p style="font-size:13px"><strong>Signed by:</strong> ${liveChecklist.signature.name} &nbsp;·&nbsp;
             ${new Date(liveChecklist.signature.date).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>`
         : `<p style="font-size:13px;color:#b45309">⚠ Signature not yet provided.</p>`
       : `<p style="font-size:13px;color:#64748b">No signature required.</p>`
@@ -697,15 +698,19 @@ export default function ChecklistDetail({ task, checklist, onClose, onDelete }: 
           checklist={liveChecklist}
           onAddAttachments={addAttachments}
           onRemoveAttachment={removeAttachment}
+          readOnly={!canComplete}
         />
       )}
       {step === 3 && (
         <PageSignOff
           checklist={liveChecklist}
+          canSign={canSign}
+          canClear={canClear}
           onSign={sign}
           onClearSignature={clearSignature}
         />
       )}
+      {needSignature && <SignatureModal onClose={() => setNeedSignature(false)} />}
 
       {/* ── Bottom navigation ── */}
       <div className="flex-shrink-0 px-8 py-5 border-t border-slate-800 flex items-center justify-between">

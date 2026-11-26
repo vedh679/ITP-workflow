@@ -9,6 +9,25 @@ export interface AppUser {
   role: UserRole
   team?: TeamType        // which team the member belongs to (separate from their access role)
   projectIds: string[]   // projects this member is assigned to
+  signature?: { image: string; at: string }   // their stored signature; only they can set it
+}
+
+export type ProjectRole = 'manager' | 'engineer'
+
+export type Permission =
+  | 'itp.edit' | 'itp.fill'
+  | 'checklist.manage' | 'checklist.complete' | 'checklist.sign'
+  | 'inspection.manage' | 'inspection.raise'
+  | 'workflow.run'
+  | 'register.add' | 'register.edit' | 'register.review' | 'register.approve'
+  | 'org.edit'
+
+export interface PermissionLogEntry {
+  id: string
+  at: string
+  by: string
+  member: string
+  change: string
 }
 
 export interface Project {
@@ -17,12 +36,17 @@ export interface Project {
   description: string
   code?: string          // short project code used on timesheets, e.g. BLD-A
   adminId?: string       // the team member IT appointed to control who has access to this project
-  approverIds?: string[] // members the admin has given "Approve & issue" (the admin always has it)
+  // Access is per project. A member's role here picks the starting preset; the admin can then change any permission.
+  roles?: Record<string, ProjectRole>             // by member id
+  permissions?: Record<string, Permission[]>      // by member id; absent = the role's preset
+  permissionLog?: PermissionLogEntry[]
 }
 
 export interface Signature {
   name: string
   date: string
+  by?: string       // the member who signed
+  image?: string    // a copy of their stored signature as it was when they signed
 }
 
 export interface ChecklistAttachment {
@@ -381,6 +405,7 @@ export interface ProjectDocIssue {
   preparedBy: string
   approvedBy: string
   approvedAt: string
+  signature?: string   // the approver's signature
 }
 
 // An earlier revision of a project document, kept exactly as it was

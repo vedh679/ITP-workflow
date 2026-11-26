@@ -5,7 +5,7 @@ import { useAppStore } from '../store'
 import BmsPanel from './BmsPanel'
 import WorkflowPanel from './WorkflowPanel'
 import type { AppUser, Project, UserRole } from '../types'
-import { canAdministerSystem, roleChip, ROLE_LABEL } from '../access'
+import { canAdministerSystem, roleChip, roleIn, ROLE_LABEL } from '../access'
 
 // ─────────────────────────────────────────────────────────────────
 // Helpers
@@ -42,18 +42,18 @@ function MembersPanel() {
         <div className="border border-slate-800 rounded-3xl overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-900">
-              <tr>{['Member', 'Role', 'Team', 'Projects'].map((h) => <th key={h} className="text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">{h}</th>)}</tr>
+              <tr>{['Member', 'Account', 'Team', 'Projects and role'].map((h) => <th key={h} className="text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">{h}</th>)}</tr>
             </thead>
             <tbody>
               {shown.map((m) => (
                 <tr key={m.id} className="border-t border-slate-800">
                   <td className="px-4 py-3"><p className="font-semibold text-ink">{m.name}</p><p className="text-xs text-slate-500">{m.email}</p></td>
-                  <td className="px-4 py-3"><span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${roleChip(m.role)}`}>{ROLE_LABEL[m.role]}</span></td>
+                  <td className="px-4 py-3"><span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${m.role === 'it' ? roleChip('it') : 'bg-slate-800 text-slate-300'}`}>{m.role === 'it' ? 'IT' : 'Team member'}</span></td>
                   <td className="px-4 py-3 text-slate-300">{m.team ?? '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
                       {m.role === 'it' ? <span className="text-slate-500">All projects</span> : projectNames(m).map((p) => (
-                        <span key={p.id} className={`text-xs px-2 py-0.5 rounded-full ${p.adminId === m.id ? 'bg-ink text-white font-semibold' : 'bg-slate-800 text-slate-300'}`}>{p.name}{p.adminId === m.id ? ' · admin' : ''}</span>
+                        <span key={p.id} className={`text-xs px-2 py-0.5 rounded-full ${p.adminId === m.id ? 'bg-ink text-white font-semibold' : 'bg-slate-800 text-slate-300'}`}>{p.name} · {p.adminId === m.id ? 'admin' : ROLE_LABEL[roleIn(p, m)]}</span>
                       ))}
                       {m.role !== 'it' && projectNames(m).length === 0 && <span className="text-slate-500">None</span>}
                     </div>
@@ -73,7 +73,7 @@ function MembersPanel() {
 // Sub-panel: Projects
 // ─────────────────────────────────────────────────────────────────
 function ProjectsPanel() {
-  const { projects, members, addMember, updateMember, addProject, updateProject, deleteProject } = useAppStore()
+  const { projects, members, addMember, updateMember, addProject, updateProject, deleteProject, setMemberRole, currentUser } = useAppStore()
   const [selectedId, setSelectedId] = useState<string | null>(projects[0]?.id ?? null)
   const [editing, setEditing] = useState<Project | null>(null)
   const [isNew, setIsNew] = useState(false)
@@ -99,12 +99,13 @@ function ProjectsPanel() {
       addMember({ id: adminId, email: adminEmail, name: admin.name.trim(), role: 'manager', team: 'Manager', projectIds: [editing.id] })
     } else {
       const person = members.find((m) => m.id === adminId)
-      // a project admin manages the project, so they hold at least the Manager role and have access to it
-      if (person) updateMember({ ...person, role: 'manager', projectIds: person.projectIds.includes(editing.id) ? person.projectIds : [...person.projectIds, editing.id] })
+      // the project admin needs access to the project; their role there is Manager, nothing changes elsewhere
+      if (person && !person.projectIds.includes(editing.id)) updateMember({ ...person, projectIds: [...person.projectIds, editing.id] })
     }
     const project = { ...editing, adminId }
     if (isNew) addProject(project)
     else updateProject(project)
+    if (!selected || isNew || selected.adminId !== adminId) setMemberRole(project.id, adminId, 'manager', currentUser?.name ?? 'IT')
     setSelectedId(editing.id)
     setEditing(null); setIsNew(false)
   }
@@ -184,7 +185,7 @@ function ProjectsPanel() {
                   </div>
                 )}
                 {emailTaken && <p className="text-xs text-red-600 mt-1">That email is already in the system. Choose the person from the list.</p>}
-                <p className="text-xs text-slate-500 mt-1">The project admin is given the Manager role, and adds and removes the project's members.</p>
+                <p className="text-xs text-slate-500 mt-1">The project admin has every permission on this project, and manages its members and their access.</p>
               </div>
             </div>
           </div>
@@ -213,14 +214,14 @@ function ProjectsPanel() {
                 <ul className="divide-y divide-slate-800">
                   {projectMembers(selected.id).map((m) => (
                     <li key={m.id} className="flex items-center gap-3 px-4 py-3">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${roleChip(m.role)}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${roleChip(roleIn(selected, m))}`}>
                         {m.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-slate-200">{m.name}{m.id === selected.adminId && <span className="ml-2 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-ink text-white">Project admin</span>}</div>
                         <div className="text-xs text-slate-500">{m.email}</div>
                       </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${ROLE_BADGE[m.role]}`}>{ROLE_LABEL[m.role]}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${ROLE_BADGE[roleIn(selected, m)]}`}>{ROLE_LABEL[roleIn(selected, m)]}</span>
                     </li>
                   ))}
                 </ul>

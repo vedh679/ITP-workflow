@@ -55,7 +55,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>(workflow.edges.map(toFlowEdge))
 
   const selected = nodes.find((n) => n.selected) ?? null
-  const approvers = members.filter((m) => m.role === 'it' || m.role === 'manager')
+  const approvers = members.filter((m) => m.role !== 'it')
 
   const snapshot = useMemo(() => JSON.stringify({
     name, description,
@@ -203,7 +203,7 @@ function WorkflowEditor({ workflow }: { workflow: Workflow }) {
                     <div><label className={label}>Approver</label>
                       <select className={input} value={selected.data.approverId ?? ''} onChange={(e) => patchSelected({ approverId: e.target.value || undefined })}>
                         <option value="">Select an approver…</option>
-                        {approvers.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.role})</option>)}
+                        {approvers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                       </select></div>
                   ) : (
                     <p className="text-xs text-slate-400">The project manager sends the work to the client, then records the client's decision here in the ITP.</p>

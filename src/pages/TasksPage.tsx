@@ -10,7 +10,7 @@ import NewTaskModal from '../components/NewTaskModal'
 import AddInspectionModal from '../components/AddInspectionModal'
 import InspectionDetail from '../components/InspectionDetail'
 import AppHeader from '../components/AppHeader'
-import { canAccessTasks, canManageProject } from '../access'
+import { can, canAccessTasks } from '../access'
 import { itpFromTemplate, itpTemplate, libraryTemplates } from '../projectDocs'
 import ItpDetail from '../components/ItpDetail'
 import TaskWorkflowBanner from '../components/TaskWorkflowBanner'
@@ -31,7 +31,7 @@ function formatDate(iso: string) {
 }
 
 export default function TasksPage() {
-  const { currentUser, currentProjectId, members, tasks, templates, addTask, updateTask, bmsDocuments } = useAppStore()
+  const { currentUser, currentProjectId, members, tasks, templates, addTask, updateTask, bmsDocuments, projects } = useAppStore()
 
   // Build name lookup from live members list
   const memberNameMap: Record<string, string> = Object.fromEntries(members.map((m) => [m.email, m.name]))
@@ -61,7 +61,9 @@ export default function TasksPage() {
   if (!currentUser) return <Navigate to="/" replace />   // signed out
   if (!canAccessTasks(currentUser)) return <Navigate to="/home" replace />   // IT doesn't work on tasks
 
-  const canEdit = canManageProject(currentUser)
+  const project = projects.find((p) => p.id === currentProjectId)
+  const canEdit = can(currentUser, project, 'itp.edit')
+  const canRun = can(currentUser, project, 'workflow.run')
 
   const filteredTasks = projectFilteredTasks.filter((t) => {
     const matchSearch = t.name.toLowerCase().includes(search.toLowerCase())
@@ -241,7 +243,7 @@ export default function TasksPage() {
                       </span>
                       {task.workflowRun?.status === 'awaiting-initiation' && (
                         <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-amber-900/60 text-amber-300">
-                          {canEdit ? 'Action needed' : 'Awaiting PM'}
+                          {canRun ? 'Action needed' : 'Awaiting PM'}
                         </span>
                       )}
                     </div>
@@ -302,10 +304,10 @@ export default function TasksPage() {
       {/* ── Main area 75% ── */}
       <main className="flex-1 overflow-hidden flex flex-col">
 
-        {/* Toolbar: view toggle (managers/admins) + project switcher */}
+        {/* Toolbar: view toggle */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-slate-800 bg-slate-900/60">
-          {/* View toggle — managers & admins only */}
-          {canEdit ? (
+          {/* View toggle — everyone on the project can view both */}
+          {selectedTask ? (
             <div className="flex items-center gap-1 p-1 bg-slate-800 rounded-lg">
               <button
                 onClick={() => setViewMode('mindmap')}
@@ -362,7 +364,8 @@ export default function TasksPage() {
                     outdated: libraryTemplates(bmsDocuments).some((t) => t.id === selectedTask.itp!.templateId && t.version !== selectedTask.itp!.templateVersion),
                   } : null}
                   onOpenItpDoc={() => setItpOpen(true)}
-                  canEdit={canEdit}
+                  canAddChecklist={can(currentUser, project, 'checklist.manage')}
+                  canAddInspection={can(currentUser, project, 'inspection.manage')}
                 />
             ) : (
               <TaskTableView task={selectedTask} members={members}
@@ -371,7 +374,7 @@ export default function TasksPage() {
 
             {/* The ITP, checklists and inspections open over either view */}
                 {itpOpen && selectedTask.itp && (
-                  <ItpDetail task={selectedTask} itp={selectedTask.itp} canEdit={canEdit}
+                  <ItpDetail task={selectedTask} itp={selectedTask.itp} canEdit={canEdit} canFill={can(currentUser, project, 'itp.fill')}
                     onClose={() => setItpOpen(false)} onSave={(itp) => updateTask({ ...selectedTask, itp })} />
                 )}
                 {openInspectionId && (() => {

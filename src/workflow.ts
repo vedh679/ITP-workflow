@@ -20,28 +20,21 @@ export function isChecklistComplete(cl: TaskChecklist): boolean {
   return cl.items.length > 0 && cl.items.every((i) => i.completed) && (!cl.requiresSignature || !!cl.signature)
 }
 
-export function isManager(user: AppUser | null): boolean {
-  return user?.role === 'it' || user?.role === 'manager'
-}
-
 /** Label for the manager's "go to the next stage" button */
 export function initiateLabel(n: WorkflowNode): string {
   return isClientApproval(n) ? 'Send to client for approval' : `Initiate: ${n.data.label || 'next step'}`
 }
 
-/** Who may act on the step currently in progress */
-export function canActOnStep(user: AppUser | null, task: Task, node: WorkflowNode, members: AppUser[]): boolean {
+/** Who may act on the step currently in progress. canRun = has the "Run workflow" permission on the project */
+export function canActOnStep(user: AppUser | null, task: Task, node: WorkflowNode, members: AppUser[], canRun: boolean): boolean {
   if (!user) return false
-  if (isManager(user)) {
-    if (node.data.kind !== 'approval' || isClientApproval(node)) return true
-    // member approval: the named approver, or IT
-    const approver = members.find((m) => m.id === node.data.approverId)
-    return !approver || approver.id === user.id || user.role === 'it'
-  }
   if (node.data.kind === 'approval') {
-    return !isClientApproval(node) && node.data.approverId === user.id
+    if (isClientApproval(node)) return canRun
+    // the named approver; if they aren't on this project, whoever runs the workflow records the decision
+    const named = members.find((m) => m.id === node.data.approverId)
+    return named && named.role !== 'it' && named.projectIds.includes(task.projectId) ? named.id === user.id : canRun
   }
-  return task.assignedTo === user.email   // procedure / task steps
+  return canRun || task.assignedTo === user.email   // procedure / task steps
 }
 
 function entry(node: WorkflowNode, outcome: WorkflowLogOutcome, by: string, note?: string): WorkflowLogEntry {

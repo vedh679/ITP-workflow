@@ -8,14 +8,15 @@ import type { DocBlock, Task, TaskItp } from '../types'
 interface Props {
   task: Task
   itp: TaskItp
-  canEdit: boolean            // may change the ITP's content (project managers)
+  canEdit: boolean            // may change the ITP's content
+  canFill: boolean            // may make entries
   onClose?: () => void        // when given, the ITP is a full-screen view with an Exit button; otherwise it fills its own tab
   onSave: (itp: TaskItp) => void
 }
 
 // One ITP's own inspection and test plan. It starts from the BMS template but belongs to this ITP,
 // so a manager can change its content where this ITP needs something different.
-export default function ItpDetail({ task, itp, canEdit, onClose, onSave }: Props) {
+export default function ItpDetail({ task, itp, canEdit, canFill, onClose, onSave }: Props) {
   const { bmsDocuments, currentUser } = useAppStore()
   const [values, setValues] = useState<Record<string, string>>(itp.fieldValues)
   const [editing, setEditing] = useState<DocBlock[] | null>(null)   // the content being changed
@@ -49,7 +50,7 @@ export default function ItpDetail({ task, itp, canEdit, onClose, onSave }: Props
             </>
           ) : (
             <>
-              <button onClick={() => onSave({ ...itp, fieldValues: values, ...stamp() })} disabled={!dirty} className={`${btn} bg-ink hover:bg-ink-soft disabled:opacity-40 text-white`}>Save entries</button>
+              {canFill && <button onClick={() => onSave({ ...itp, fieldValues: values, ...stamp() })} disabled={!dirty} className={`${btn} bg-ink hover:bg-ink-soft disabled:opacity-40 text-white`}>Save entries</button>}
               {canEdit && <button onClick={() => setEditing(itp.blocks)} className={`${btn} bg-slate-800 hover:bg-slate-700 text-slate-200`}>Edit content</button>}
             </>
           )}
@@ -70,7 +71,7 @@ export default function ItpDetail({ task, itp, canEdit, onClose, onSave }: Props
           ) : (
             <>
               <DocumentView title={task.name} meta={[itp.templateRef, `started from template v${itp.templateVersion}`, task.location].filter(Boolean).join(' · ')}
-                blocks={itp.blocks} values={values} onChange={(id, v) => setValues((cur) => ({ ...cur, [id]: v }))} />
+                blocks={itp.blocks} values={values} onChange={canFill ? (id, v) => setValues((cur) => ({ ...cur, [id]: v })) : undefined} />
               {itp.updatedAt && <p className="text-xs text-slate-500 mt-3">Last updated by {itp.updatedBy} on {new Date(itp.updatedAt).toLocaleString()}</p>}
             </>
           )}

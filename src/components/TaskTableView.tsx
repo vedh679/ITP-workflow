@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Task, AppUser } from '../types'
-import { canManageProject } from '../access'
+import { can } from '../access'
 import { useAppStore } from '../store'
 import MemberPicker from './MemberPicker'
 import ItpDetail from './ItpDetail'
@@ -74,7 +74,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 // ── Sheet 1 — ITP editable form ───────────────────────────────────
-function ITPSheet({ task, members }: { task: Task; members: AppUser[] }) {
+function ITPSheet({ task, members, canEdit }: { task: Task; members: AppUser[]; canEdit: boolean }) {
   const updateTask = useAppStore((s) => s.updateTask)
 
   const [name, setName]             = useState(task.name)
@@ -110,7 +110,8 @@ function ITPSheet({ task, members }: { task: Task; members: AppUser[] }) {
 
   return (
     <div className="overflow-y-auto h-full">
-      <div className="max-w-2xl mx-auto px-8 py-8 space-y-6">
+      {/* without "Create & edit ITPs" the details are view-only */}
+      <fieldset disabled={!canEdit} className="max-w-2xl mx-auto px-8 py-8 space-y-6 disabled:opacity-80">
 
         {/* Task name */}
         <div>
@@ -233,7 +234,7 @@ function ITPSheet({ task, members }: { task: Task; members: AppUser[] }) {
         {/* Bottom padding */}
         <div className="h-4" />
 
-      </div>
+      </fieldset>
     </div>
   )
 }
@@ -442,7 +443,7 @@ function buildPDF(
 
       const sigBlock = cl.requiresSignature
         ? cl.signature
-          ? `<p style="margin:10px 0 0;font-size:12px;color:#166534;background:#dcfce7;
+          ? `${cl.signature.image ? `<img src="${cl.signature.image}" alt="Signature" style="display:block;height:56px;margin-top:10px">` : ''}<p style="margin:10px 0 0;font-size:12px;color:#166534;background:#dcfce7;
               padding:8px 12px;border-radius:6px;display:inline-block">
               ✓ Signed by <strong>${cl.signature.name}</strong> on ${fmt(cl.signature.date)}</p>`
           : `<p style="margin:10px 0 0;font-size:12px;color:#92400e;background:#fef3c7;
@@ -664,7 +665,8 @@ const SHEETS: { id: Sheet; label: string; icon: React.ReactNode }[] = [
 export default function TaskTableView({ task, members, onOpenChecklist, onOpenInspection }: Props) {
   const currentUser = useAppStore((s) => s.currentUser)
   const updateTask = useAppStore((s) => s.updateTask)
-  const canManage = canManageProject(currentUser)
+  const project = useAppStore((s) => s.projects.find((p) => p.id === task.projectId))
+  const canManage = can(currentUser, project, 'itp.edit')
   const [sheet, setSheet] = useState<Sheet>('itp')
   const [showExport, setShowExport] = useState(false)
 
@@ -714,9 +716,9 @@ export default function TaskTableView({ task, members, onOpenChecklist, onOpenIn
       {/* Table area */}
       <div className="flex-1 overflow-hidden">
         {sheet === 'itp' && (task.itp
-          ? <ItpDetail key={task.id} task={task} itp={task.itp} canEdit={canManage} onSave={(itp) => updateTask({ ...task, itp })} />
+          ? <ItpDetail key={task.id} task={task} itp={task.itp} canEdit={canManage} canFill={can(currentUser, project, 'itp.fill')} onSave={(itp) => updateTask({ ...task, itp })} />
           : <p className="p-8 text-sm text-slate-500">This ITP has no inspection and test plan document. The BMS library had no published ITP template when it was created.</p>)}
-        {sheet === 'details'    && <ITPSheet        task={task} members={members} />}
+        {sheet === 'details'    && <ITPSheet        task={task} members={members} canEdit={canManage} />}
         {sheet === 'checklists' && <ChecklistsSheet task={task} members={members} onOpen={onOpenChecklist} />}
         {sheet === 'inspections' && <InspectionsSheet task={task} members={members} onOpen={onOpenInspection} />}
       </div>

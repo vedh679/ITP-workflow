@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import Logo from './Logo'
+import { useState } from 'react'
+import { SignatureModal, SignaturePrompt } from './Signature'
 import ProjectSwitcher from './ProjectSwitcher'
 import { pendingDocs, projectDocsOf, reviewsDueIn } from '../projectDocs'
-import { canAccessRegister, canAccessTasks, canAccessTimesheet, canViewOrganisation, isCentral, isProjectAdmin, canApproveIssue } from '../access'
+import { canAccessRegister, canAccessTasks, canAccessTimesheet, canViewOrganisation, isCentral, isProjectAdmin, can, roleIn } from '../access'
 
 type Active = 'none' | 'overview' | 'tasks' | 'documents' | 'organisation' | 'timesheet' | 'admin' | 'team'
 
@@ -11,13 +13,14 @@ type Active = 'none' | 'overview' | 'tasks' | 'documents' | 'organisation' | 'ti
 export default function AppHeader({ active }: { active: Active }) {
   const navigate = useNavigate()
   const currentUser = useAppStore((s) => s.currentUser)
+  const [signing, setSigning] = useState(false)
   const { currentProjectId, bmsDocuments, projectDocuments, projects } = useAppStore()
   if (!currentUser) return null
 
   // Documents in this project needing attention, shown to the whole project team: a newer template to update to, or a 12-month review due
   const docsBehind = canAccessRegister(currentUser) && currentProjectId
     ? pendingDocs(currentProjectId, bmsDocuments, projectDocuments).length + reviewsDueIn(currentProjectId, projectDocuments, bmsDocuments).length
-      + (canApproveIssue(currentUser, projects.find((p) => p.id === currentProjectId)) ? projectDocsOf(projectDocuments, currentProjectId).filter((d) => d.submission).length : 0) : 0
+      + (can(currentUser, projects.find((p) => p.id === currentProjectId), 'register.approve') ? projectDocsOf(projectDocuments, currentProjectId).filter((d) => d.submission).length : 0) : 0
 
   const signOut = () => {
     useAppStore.getState().setCurrentUser(null)
@@ -62,15 +65,17 @@ export default function AppHeader({ active }: { active: Active }) {
       <div className="flex items-center gap-3 justify-self-end">
         <div className="text-right hidden xl:block whitespace-nowrap">
           <p className="text-sm font-semibold text-ink leading-tight">{currentUser.name}</p>
-          <p className="text-xs text-slate-500">{currentUser.role}</p>
+          <p className="text-xs text-slate-500">{roleIn(projects.find((p) => p.id === currentProjectId), currentUser)}</p>
         </div>
-        <div className="w-8 h-8 rounded-full bg-ink text-white flex items-center justify-center text-xs font-bold">
+        <button onClick={() => currentUser.role !== 'it' && setSigning(true)} title={currentUser.role === 'it' ? undefined : 'Your signature'}
+          className="w-8 h-8 rounded-full bg-ink text-white flex items-center justify-center text-xs font-bold">
           {currentUser.name.charAt(0).toUpperCase()}
-        </div>
+        </button>
         <button onClick={signOut} className="px-3 xl:px-4 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition-colors whitespace-nowrap">
           Sign out
         </button>
       </div>
+      {signing ? <SignatureModal onClose={() => setSigning(false)} /> : <SignaturePrompt />}
     </header>
   )
 }

@@ -6,7 +6,8 @@ import LibraryPicker from '../components/LibraryPicker'
 import DocumentUpdate from '../components/DocumentUpdate'
 import DocumentView from '../components/DocumentView'
 import { CORE_CATEGORIES, REGISTER_REVIEW_MONTHS, changesSince, docStatus, fmtDate, isActive, isVersionOnly, nextReviewDate, pendingDocs, pluralCategory, registerReviewState, reviewsDueIn, seqLabel, versionsOf, type DocStatus } from '../projectDocs'
-import { canAccessRegister, canApproveIssue, canManageProject } from '../access'
+import { can, canAccessRegister, isProjectAdmin } from '../access'
+import { SignatureModal } from '../components/Signature'
 import SubmissionPanel from '../components/SubmissionPanel'
 import type { BmsCategory, DocBlock, ProjectDocument } from '../types'
 
@@ -46,7 +47,7 @@ function FillableDocument({ title, meta, blocks, savedValues, draft, saveLabel, 
                 : dirty ? <span className="text-xs text-amber-700">Unsaved changes</span> : null}
             </>
           ) : (
-            <span className="text-xs text-slate-500">Read-only view — project details are completed on the version the document is on.</span>
+            <span className="text-xs text-slate-500">Read-only. Editing needs the project admin's permission, on the current version.</span>
           )}
           {updatedLine && !dirty && <span className="text-xs text-slate-500">{updatedLine}</span>}
         </div>
@@ -69,15 +70,19 @@ export default function DocumentsPage() {
   const [notice, setNotice] = useState('')
   const [updating, setUpdating] = useState(false)                 // the guided update to a new template version
   const [viewingPast, setViewingPast] = useState<number | null>(null) // an earlier revision, read-only
+  const [needSignature, setNeedSignature] = useState(false)
   const [reviewing, setReviewing] = useState<{ comment: string } | null>(null)
 
   if (!currentUser) return <Navigate to="/" replace />   // signed out
   if (!canAccessRegister(currentUser)) return <Navigate to="/home" replace />   // IT doesn't use the document register
 
-  const manager = canManageProject(currentUser)
   const projectId = currentProjectId ?? ''
   const project = projects.find((p) => p.id === projectId)
-  const approver = canApproveIssue(currentUser, project)
+  // everyone views the register; changing it needs a permission the project admin grants
+  const canAdd = can(currentUser, project, 'register.add')
+  const canEditDocs = can(currentUser, project, 'register.edit')
+  const canReview = can(currentUser, project, 'register.review')
+  const approver = can(currentUser, project, 'register.approve')
 
   // This project's documents, each joined to the library template it came from
   const mine = projectDocuments.filter((d) => d.projectId === projectId)
@@ -117,19 +122,21 @@ export default function DocumentsPage() {
   // a past revision shows the content, name and number it was issued with
   const pastVersion = pastRevision ? allVersions.find((v) => v.version === pastRevision.templateVersion) : undefined
 
-  const canFill = manager || currentUser.projectIds.includes(projectId)
   const openResult = (j: ReturnType<typeof join>) => {
     setCategory(j.template?.category ?? null); setSelectedId(j.instance.id); setShowLatest(false); setSearch(''); setGlobalQuery(''); setSearchOpen(false)
   }
 
   // A completed change: issued straight away by someone with "Approve & issue", otherwise sent for approval
-  const complete = (kind: 'edit' | 'update', toVersion: string, values: Record<string, string>, note = '') => {
-    if (!inst || !selected) return
+  const complete = (kind: 'edit' | 'update', toVersion: string, values: Record<string, string>, note = ''): boolean => {
+    if (!inst || !selected) return false
+    // issuing signs the revision, so a stored signature is needed first
+    if (approver && !currentUser.signature) { setNeedSignature(true); return false }
     submitProjectDocChange(inst.id, { kind, toVersion, values, note: note || undefined }, currentUser.name)
-    if (!approver) { setNotice(`Submitted for approval. Revision ${inst.revision ?? 1} stays current until it is approved.`); return }
-    approveProjectDocChange(inst.id, currentUser.name)
+    if (!approver) { setNotice(`Submitted for approval. Revision ${inst.revision ?? 1} stays current until it is approved.`); return true }
+    approveProjectDocChange(inst.id, currentUser.name, currentUser.signature?.image)
     const next = new Date(); next.setMonth(next.getMonth() + REGISTER_REVIEW_MONTHS)
     setNotice(`Approved and issued: "${selected.name}" is now revision ${(inst.revision ?? 1) + 1} on template v${toVersion}. Revision ${inst.revision ?? 1} is kept.${versionOnly ? '' : ` Next review due ${fmtDate(next)}.`}`)
+    return true
   }
 
   if (!project) {
@@ -189,7 +196,7 @@ export default function DocumentsPage() {
               </>
             )}
           </div>
-          {manager && (
+          {canAdd && (
             <button onClick={() => setPicker(true)} className="px-4 py-1.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors whitespace-nowrap">+ Add from library</button>
           )}
         </div>
@@ -216,9 +223,9 @@ export default function DocumentsPage() {
             {dueReviews.length > 0 && (
               <p className="text-sm text-amber-700"><span className="font-semibold">{dueReviews.length} due for review</span> — 12 months since the last edit: {dueReviews.map((j) => `${j.name} (${seqLabel(j.instance.sequence)})`).join(', ')}.</p>
             )}
-            {!manager && !approver && <p className="text-xs text-amber-700/80">The project manager has been prompted.</p>}
+            {!canEditDocs && !approver && !canReview && <p className="text-xs text-amber-700/80">Someone with document permissions needs to act on these.</p>}
           </div>
-          {(manager || approver) && (
+          {(canEditDocs || approver || canReview) && (
             <button onClick={() => { const first = approver && awaiting[0] ? { c: awaiting[0].template?.category ?? null, id: awaiting[0].instance.id } : pending[0] ? { c: pending[0].template.category, id: pending[0].instance.id } : { c: dueReviews[0].template?.category ?? null, id: dueReviews[0].instance.id }
               setCategory(first.c); setSelectedId(first.id); setShowLatest(false); setUpdating(false); setViewingPast(null) }}
               className="px-4 py-2 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">Review first</button>
@@ -233,8 +240,8 @@ export default function DocumentsPage() {
           {active.length === 0 && (
             <div className="mb-5 rounded-3xl border border-dashed border-slate-600 bg-slate-900 px-6 py-8 text-center">
               <p className="text-sm font-semibold text-ink">Your register is empty</p>
-              <p className="text-sm text-slate-400 mt-1">{manager ? 'Pull a template in from the BMS library to create your first project document.' : 'The project manager adds documents here from the BMS library.'}</p>
-              {manager && <button onClick={() => setPicker(true)} className="mt-4 px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold">+ Add from library</button>}
+              <p className="text-sm text-slate-400 mt-1">{canAdd ? 'Pull a template in from the BMS library to create your first project document.' : 'The project manager adds documents here from the BMS library.'}</p>
+              {canAdd && <button onClick={() => setPicker(true)} className="mt-4 px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold">+ Add from library</button>}
             </div>
           )}
           <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -282,7 +289,7 @@ export default function DocumentsPage() {
               {rows.length === 0 && (
                 <div className="p-4 text-sm text-slate-500">
                   <p>{showArchived ? 'No archived documents.' : `No ${category.toLowerCase()} documents in the register yet.`}</p>
-                  {manager && !showArchived && <button onClick={() => setPicker(true)} className="mt-2 text-ink font-semibold hover:underline">+ Add from library</button>}
+                  {canAdd && !showArchived && <button onClick={() => setPicker(true)} className="mt-2 text-ink font-semibold hover:underline">+ Add from library</button>}
                 </div>
               )}
               {rows.map((j) => (
@@ -307,11 +314,11 @@ export default function DocumentsPage() {
           {/* Detail */}
           <main className="flex-1 overflow-y-auto p-8">
             {updating && selected && inst && tpl ? (
-              <DocumentUpdate key={`${inst.id}-${tpl.version}`} name={selected.name} number={selected.number} instance={inst} template={tpl} canWork={manager} canApprove={approver} reference={versionOnly}
+              <DocumentUpdate key={`${inst.id}-${tpl.version}`} name={selected.name} number={selected.number} instance={inst} template={tpl} canWork={canEditDocs} canApprove={approver} reference={versionOnly}
                 onCancel={() => setUpdating(false)}
                 onSaveDraft={(vals) => { saveProjectDocUpdateDraft(inst.id, tpl.version, vals, currentUser.name); setNotice('Draft saved. You can carry on with the update later.') }}
                 onDiscardDraft={() => { discardProjectDocUpdateDraft(inst.id); setNotice('Draft discarded.') }}
-                onApply={(vals, note) => { complete('update', tpl.version, vals, note); setUpdating(false); setShowLatest(false) }} />
+                onApply={(vals, note) => { if (complete('update', tpl.version, vals, note)) { setUpdating(false); setShowLatest(false) } }} />
             ) : selected && inst && shown ? (
               <div className={`${shown.blocks ? 'max-w-4xl' : 'max-w-2xl'} space-y-5`}>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -325,10 +332,10 @@ export default function DocumentsPage() {
                     {versionOnly ? <p className="text-xs text-slate-400 mt-1">Version reference: use this version of the form. There is nothing to fill in here and no project review.</p> : <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
                       {inst.lastReviewedAt && `Last reviewed ${fmtDate(new Date(inst.lastReviewedAt))} by ${inst.lastReviewedBy} · `}Last edited {fmtDate(new Date(inst.lastEditedAt ?? inst.adoptedAt))} · next review due <span className="font-semibold text-slate-300">{fmtDate(nextReviewDate(inst))}</span>
                       {registerReviewState(inst) !== 'ok' && <span className={`font-semibold px-2 py-0.5 rounded-full ${registerReviewState(inst) === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>{registerReviewState(inst) === 'overdue' ? 'Review overdue' : 'Review due soon'}</span>}
-                      {manager && isActive(inst) && !reviewing && <button onClick={() => setReviewing({ comment: '' })} className="font-semibold text-coral-dark hover:underline">Review now</button>}
+                      {canReview && isActive(inst) && !reviewing && <button onClick={() => setReviewing({ comment: '' })} className="font-semibold text-coral-dark hover:underline">Review now</button>}
                     </p>}
                   </div>
-                  {manager && (
+                  {canAdd && (
                     <div className="flex gap-2">
                       {isActive(inst)
                         ? <>
@@ -343,12 +350,13 @@ export default function DocumentsPage() {
                   )}
                 </div>
 
-                {inst.issue && <p className="text-xs text-slate-400 -mt-3">Revision {inst.revision} prepared by <span className="font-semibold text-slate-300">{inst.issue.preparedBy}</span> · approved by <span className="font-semibold text-slate-300">{inst.issue.approvedBy}</span> on {fmtDate(new Date(inst.issue.approvedAt))}</p>}
+                {inst.issue && <p className="text-xs text-slate-400 -mt-3">Revision {inst.revision} prepared by <span className="font-semibold text-slate-300">{inst.issue.preparedBy}</span> · approved by <span className="font-semibold text-slate-300">{inst.issue.approvedBy}</span> on {fmtDate(new Date(inst.issue.approvedAt))}
+                  {inst.issue.signature && <img src={inst.issue.signature} alt={`Signature of ${inst.issue.approvedBy}`} className="block h-10 mt-1" />}</p>}
 
                 {inst.submission && isActive(inst) && (
                   <SubmissionPanel key={inst.submission.at} instance={inst} submission={inst.submission} template={tpl} title={selected.name} canApprove={approver}
-                    canWithdraw={manager || inst.submission.by === currentUser.name}
-                    onApprove={() => { approveProjectDocChange(inst.id, currentUser.name); setNotice(`Approved and issued as revision ${(inst.revision ?? 1) + 1}. Revision ${inst.revision ?? 1} is kept.`) }}
+                    canWithdraw={isProjectAdmin(currentUser, project) || inst.submission.by === currentUser.name}
+                    onApprove={() => { if (!currentUser.signature) { setNeedSignature(true); return } approveProjectDocChange(inst.id, currentUser.name, currentUser.signature.image); setNotice(`Approved and issued as revision ${(inst.revision ?? 1) + 1}. Revision ${inst.revision ?? 1} is kept.`) }}
                     onReturn={(comment) => { returnProjectDocChange(inst.id, comment, currentUser.name); setNotice('Returned. The work is kept as a draft.') }}
                     onWithdraw={() => { returnProjectDocChange(inst.id, '', currentUser.name); setNotice('Withdrawn. The work is kept as a draft.') }} />
                 )}
@@ -358,7 +366,7 @@ export default function DocumentsPage() {
                   </p>
                 )}
 
-                {reviewing && manager && !versionOnly && isActive(inst) && (
+                {reviewing && canReview && !versionOnly && isActive(inst) && (
                   <div className="rounded-3xl bg-white border border-ink shadow-float px-5 py-4 space-y-3">
                     <div>
                       <h3 className="text-sm font-bold text-ink">Review {selected.name} ({seqLabel(inst.sequence)})</h3>
@@ -392,7 +400,7 @@ export default function DocumentsPage() {
                         </li>
                       ))}
                     </ul>
-                    {manager ? (
+                    {canEditDocs ? (
                       <div className="flex items-center gap-3 flex-wrap">
                         <button onClick={() => { setUpdating(true); setViewingPast(null); setReviewing(null) }}
                           className="px-5 py-2 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">{versionOnly ? `Review & adopt v${tpl.version}` : inst.updateDraft ? 'Continue the update' : 'Review & update'}</button>
@@ -401,7 +409,7 @@ export default function DocumentsPage() {
                           : `You'll see your existing entries and everything new from the template side by side, check it, edit it, then ${approver ? 'approve and issue it' : 'submit it for approval'}.`}
                           {!versionOnly && inst.updateDraft && (inst.updateDraft.toVersion === tpl.version ? ' A draft is saved.' : ` Your draft for v${inst.updateDraft.toVersion} will be carried forward.`)}</span>
                       </div>
-                    ) : <p className="text-xs text-amber-700/80">Waiting for the project manager to update.</p>}
+                    ) : <p className="text-xs text-amber-700/80">Waiting for someone with "Edit & update" permission.</p>}
                   </div>
                 )}
 
@@ -441,7 +449,7 @@ export default function DocumentsPage() {
                     draft={inst.editDraft}
                     onSaveDraft={(vals) => { saveProjectDocEditDraft(inst.id, vals, currentUser.name); setNotice(`Draft saved. Revision ${inst.revision ?? 1} stays current until the change is ${approver ? 'approved and issued' : 'submitted and approved'}.`) }}
                     onDiscardDraft={() => discardProjectDocEditDraft(inst.id)}
-                    canEdit={isActive(inst) && canFill && !inst.submission && shown.version === inst.adoptedVersion}
+                    canEdit={isActive(inst) && canEditDocs && !inst.submission && shown.version === inst.adoptedVersion}
                     saveLabel={approver ? 'Approve & issue' : 'Submit for approval'}
                     updatedLine={inst.fieldsUpdatedAt ? `Last updated by ${inst.fieldsUpdatedBy} on ${new Date(inst.fieldsUpdatedAt).toLocaleString()}` : undefined}
                     onSave={(vals) => { if (JSON.stringify(inst.fieldValues ?? {}) === JSON.stringify(vals)) { setNotice('No changes to issue.'); return } complete('edit', inst.adoptedVersion, vals) }} />
@@ -494,6 +502,7 @@ export default function DocumentsPage() {
         </div>
       )}
 
+      {needSignature && <SignatureModal onClose={() => setNeedSignature(false)} />}
       {picker && (
         <LibraryPicker projectId={projectId} onClose={() => setPicker(false)}
           onCreated={(id) => {

@@ -2,8 +2,8 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
 import { pendingDocs, reviewsDueIn } from '../projectDocs'
-import { isChecklistComplete, isManager } from '../workflow'
-import { canAccessRegister, canAccessTasks, canAccessTimesheet, canManageBms, canViewOrganisation, isCentral } from '../access'
+import { isChecklistComplete } from '../workflow'
+import { canAccessRegister, canAccessTasks, canAccessTimesheet, canManageBms, canViewOrganisation, isCentral, can } from '../access'
 import { fmtDate, nextReviewDue, reviewState, reviewsDue } from '../bmsReview'
 
 function greeting() {
@@ -38,6 +38,8 @@ export default function HomePage() {
 
   const activeProject = projects.find((p) => p.id === currentProjectId)
   const isAdmin = isCentral(currentUser)   // IT works across all projects
+  const canEditDocs = can(currentUser, activeProject, 'register.edit')
+  const canRun = can(currentUser, activeProject, 'workflow.run')
 
   // Headline numbers for the tasks this person can see
   const scoped = tasks.filter((t) => t.projectId === currentProjectId)
@@ -70,7 +72,7 @@ export default function HomePage() {
             <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold">!</div>
             <div className="flex-1 min-w-[220px] space-y-0.5">
               <p className="text-sm font-semibold text-amber-700">
-                {isManager(currentUser) ? 'Your document register needs attention' : 'Some register documents need attention'}
+                {canEditDocs ? 'Your document register needs attention' : 'Some register documents need attention'}
               </p>
               {behind.length > 0 && (
                 <p className="text-xs text-amber-700/80">
@@ -82,7 +84,7 @@ export default function HomePage() {
               )}
             </div>
             <button onClick={() => navigate('/documents')} className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">
-              {isManager(currentUser) ? 'Review & update' : 'View register'}
+              {canEditDocs ? 'Review & update' : 'View register'}
             </button>
           </div>
         )}
@@ -112,7 +114,7 @@ export default function HomePage() {
           <Kpi icon={icon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2')}
             label="Active ITPs" value={active.length} caption={`of ${scoped.length} total`} />
           <Kpi icon={icon('M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z')}
-            label={isManager(currentUser) ? 'Awaiting your action' : 'Awaiting PM'} value={awaiting.length}
+            label={canRun ? 'Awaiting your action' : 'Awaiting PM'} value={awaiting.length}
             caption={awaiting.length > 0 ? 'ready for next stage' : 'all clear'} tone={awaiting.length > 0 ? 'warn' : undefined} />
           <Kpi icon={icon('M5 13l4 4L19 7')} label="Checklists done" value={`${doneChecklists.length}/${allChecklists.length}`}
             caption={allChecklists.length ? `${Math.round((doneChecklists.length / allChecklists.length) * 100)}% complete` : 'none yet'} />
@@ -132,7 +134,7 @@ export default function HomePage() {
             </div>
             <div className="flex-1">
               <h3 className="text-xl font-bold text-ink">ITP</h3>
-              <p className="text-slate-400 text-sm mt-0.5">{currentUser.role === 'engineer' ? 'View ITPs & complete checklists' : 'View & manage inspection and test plans'}</p>
+              <p className="text-slate-400 text-sm mt-0.5">Inspection and test plans, checklists and inspections</p>
             </div>
             <span className="text-slate-500 group-hover:text-ink group-hover:translate-x-1 transition-all text-xl">→</span>
           </button>

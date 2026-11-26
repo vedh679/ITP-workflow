@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { AppUser } from '../types'
-import { roleChip, ROLE_LABEL } from '../access'
+import { roleChip, roleIn, ROLE_LABEL } from '../access'
+import { useAppStore } from '../store'
 
 
 interface Props {
@@ -13,7 +14,7 @@ interface Props {
 }
 
 export default function MemberPicker({
-  members,
+  members: people,
   value,
   onChange,
   label,
@@ -25,6 +26,9 @@ export default function MemberPicker({
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // show each person's role on the current project
+  const project = useAppStore((s) => s.projects.find((p) => p.id === s.currentProjectId))
+  const members = people.map((m) => ({ ...m, role: roleIn(project, m) }))
   const selected = members.find((m) => m.email === value) ?? null
 
   // Close dropdown on outside click

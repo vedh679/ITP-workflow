@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAppStore } from '../store'
 import { INSPECTION_COLOR } from './TaskMindMap'
 import AddInspectionModal from './AddInspectionModal'
-import { isManager } from '../workflow'
+import { can } from '../access'
 import { afterPhotos, beforePhotos, diffInspection, diffIssue, exportInspection, historyEntry, readImages, uid } from '../inspections'
 import type { ChecklistAttachment, Inspection, InspectionIssue, IssueSeverity, IssueStatus, Task } from '../types'
 
@@ -83,7 +83,9 @@ function Gallery({ title, photos }: { title: string; photos: ChecklistAttachment
 // Full-screen view of one inspection: its details and the issues / snags raised against it.
 export default function InspectionDetail({ task, inspection, onClose, onDelete }: Props) {
   const { members, currentUser, updateTask } = useAppStore()
-  const manager = isManager(currentUser)
+  const project = useAppStore((s) => s.projects.find((p) => p.id === task.projectId))
+  const manager = can(currentUser, project, 'inspection.manage')
+  const canRaise = manager || can(currentUser, project, 'inspection.raise')
   const me = currentUser?.name ?? 'Unknown'
   const live = (task.inspections ?? []).find((i) => i.id === inspection.id) ?? inspection
   const team = members.filter((m) => m.projectIds.includes(task.projectId))
@@ -242,7 +244,7 @@ export default function InspectionDetail({ task, inspection, onClose, onDelete }
                   className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${filter === f ? 'bg-ink text-white' : 'text-slate-300 hover:text-ink'}`}>{f === 'in-progress' ? 'In progress' : f}</button>
               ))}
             </div>
-            {!locked && !draft && (
+            {canRaise && !locked && !draft && (
               <button onClick={() => setDraft({ issue: blankIssue(me) })} className={`${btn} bg-ink hover:bg-ink-soft text-white ml-auto`}>+ Raise issue</button>
             )}
           </div>

@@ -3,7 +3,8 @@ import { persist } from 'zustand/middleware'
 import { startRun, syncRun } from './workflow'
 import { blocksToText, field, heading, para } from './docBlocks'
 import { itpFromTemplate } from './projectDocs'
-import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow, ProjectDocument, ProjectOrgEntry, TimesheetDay, TimesheetSession, TimesheetSubmission, ProjectDocSubmission } from './types'
+import { PRESETS, ROLE_LABEL, permissionLabel, permissionsOf } from './access'
+import type { AppUser, Project, Task, ChecklistTemplate, BmsDocument, Workflow, ProjectDocument, ProjectOrgEntry, TimesheetDay, TimesheetSession, TimesheetSubmission, ProjectDocSubmission, Permission, ProjectRole } from './types'
 
 interface AppState {
   currentUser: AppUser | null
@@ -57,7 +58,9 @@ interface AppState {
   saveProjectDocUpdateDraft: (id: string, toVersion: string, values: Record<string, string>, by: string) => void
   discardProjectDocUpdateDraft: (id: string) => void
   submitProjectDocChange: (id: string, change: Omit<ProjectDocSubmission, 'by' | 'at'>, by: string) => void
-  approveProjectDocChange: (id: string, approver: string) => void
+  approveProjectDocChange: (id: string, approver: string, signature?: string) => void
+  setMemberRole: (projectId: string, memberId: string, role: ProjectRole, by: string) => void
+  setMemberPermissions: (projectId: string, memberId: string, permissions: Permission[], by: string) => void
   returnProjectDocChange: (id: string, comment: string, by: string) => void
   reviewProjectDocument: (id: string, comment: string, by: string) => void
   saveProjectDocEditDraft: (id: string, values: Record<string, string>, by: string) => void
@@ -254,6 +257,11 @@ function nextRevision(d: ProjectDocument, by: string, now: string, note: string)
   return { ...d, revision: revision + 1, revisionStartedAt: now, versions: [...(d.versions ?? []), previous] }
 }
 
+function logAccess(p: Project, members: AppUser[], memberId: string, by: string, change: string): Project {
+  const entry = { id: `acc-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, at: new Date().toISOString(), by, member: members.find((m) => m.id === memberId)?.name ?? 'Unknown', change }
+  return { ...p, permissionLog: [entry, ...(p.permissionLog ?? [])].slice(0, 100) }
+}
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
@@ -354,14 +362,33 @@ export const useAppStore = create<AppState>()(
         }) }
       }),
       // Approve & issue: the current revision is kept as it was, and the submitted change becomes the next one
-      approveProjectDocChange: (id, approver) => set((s) => {
+      // Choosing a role applies its preset; each change to access is logged
+      setMemberRole: (projectId, memberId, role, by) => set((s) => ({
+        projects: s.projects.map((p) => {
+          if (p.id !== projectId) return p
+          const { [memberId]: _old, ...permissions } = p.permissions ?? {}
+          return logAccess({ ...p, roles: { ...p.roles, [memberId]: role }, permissions }, s.members, memberId, by, `Role set to ${ROLE_LABEL[role]}, with its preset permissions`)
+        }),
+      })),
+      setMemberPermissions: (projectId, memberId, next, by) => set((s) => ({
+        projects: s.projects.map((p) => {
+          const member = s.members.find((m) => m.id === memberId)
+          if (p.id !== projectId || !member) return p
+          const before = permissionsOf(p, member)
+          const given = next.filter((k) => !before.includes(k)), taken = before.filter((k) => !next.includes(k))
+          if (!given.length && !taken.length) return p
+          const change = [given.length && `Given ${given.map(permissionLabel).join(', ')}`, taken.length && `Removed ${taken.map(permissionLabel).join(', ')}`].filter(Boolean).join('. ')
+          return logAccess({ ...p, permissions: { ...p.permissions, [memberId]: next } }, s.members, memberId, by, change)
+        }),
+      })),
+      approveProjectDocChange: (id, approver, signature) => set((s) => {
         const now = new Date().toISOString()
         return { projectDocuments: s.projectDocuments.map((d) => {
           const sub = d.submission
           if (d.id !== id || !sub) return d
           const update = sub.kind === 'update'
           const next = nextRevision(d, approver, now, sub.note ?? (update ? `Updated to template v${sub.toVersion}` : 'Project details edited'))
-          return { ...next, submission: undefined, issue: { preparedBy: sub.by, approvedBy: approver, approvedAt: now },
+          return { ...next, submission: undefined, issue: { preparedBy: sub.by, approvedBy: approver, approvedAt: now, signature },
             ...(update ? { adoptedVersion: sub.toVersion, adoptedAt: now, adoptedBy: approver } : {}),
             fieldValues: sub.values, fieldsUpdatedAt: now, fieldsUpdatedBy: sub.by, lastEditedAt: now,
             history: [...d.history, { version: sub.toVersion, at: now, by: approver, note: `Approved and issued as revision ${next.revision} (prepared by ${sub.by})` }] }
@@ -401,7 +428,8 @@ export const useAppStore = create<AppState>()(
       // v7: project documents have revisions and a 12-month review period
       // v8/v9: each ITP has its own inspection and test plan document, started from the BMS ITP template
       // v10: each project has an admin who controls its members
-      version: 10,
+      // v11: access is per project (role preset plus permissions)
+      version: 11,
       migrate: (persisted, version) => {
         const state = persisted as { members?: { id: string; role: string }[]; currentUser?: { role: string } | null; projectOrg?: { memberId: string }[] }
         if (version < 2) {
@@ -455,6 +483,16 @@ export const useAppStore = create<AppState>()(
         if (version < 10) {
           const legacy = state as { projects?: { id: string; adminId?: string }[]; members?: { id: string; role: string; projectIds?: string[] }[] }
           legacy.projects = (legacy.projects ?? []).map((p) => ({ ...p, adminId: p.adminId ?? legacy.members?.find((m) => m.role === 'manager' && m.projectIds?.includes(p.id))?.id }))
+        }
+        if (version < 11) {
+          // keep each member's role per project, and carry "Approve & issue" across as a permission
+          const legacy = state as { projects?: (Project & { approverIds?: string[] })[]; members?: AppUser[] }
+          legacy.projects = (legacy.projects ?? []).map(({ approverIds, ...p }) => {
+            const team = (legacy.members ?? []).filter((m) => m.role !== 'it' && m.projectIds.includes(p.id))
+            const roles = Object.fromEntries(team.map((m) => [m.id, m.role as ProjectRole]))
+            const permissions = Object.fromEntries(team.filter((m) => approverIds?.includes(m.id)).map((m) => [m.id, [...PRESETS[m.role as ProjectRole], 'register.approve' as Permission]]))
+            return { ...p, roles: { ...roles, ...p.roles }, permissions: { ...permissions, ...p.permissions } }
+          })
         }
         return state as never
       },

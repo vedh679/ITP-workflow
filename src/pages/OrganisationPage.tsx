@@ -2,8 +2,7 @@ import { useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import AppHeader from '../components/AppHeader'
-import { isManager } from '../workflow'
-import { canViewOrganisation, roleChip, ROLE_LABEL, ROLE_ORDER } from '../access'
+import { canViewOrganisation, roleChip, ROLE_LABEL, ROLE_ORDER, can, roleIn } from '../access'
 import type { AppUser, ProjectOrgEntry } from '../types'
 import { TEAM_OPTIONS } from '../teams'
 
@@ -65,13 +64,14 @@ export default function OrganisationPage() {
 
   const projectId = currentProjectId ?? ''
   const project = projects.find((p) => p.id === projectId)
-  const team = useMemo(() => members.filter((m) => m.projectIds.includes(projectId)), [members, projectId])
+  // roles are per project
+  const team = useMemo(() => members.filter((m) => m.projectIds.includes(projectId)).map((m) => ({ ...m, role: roleIn(project, m) })), [members, projectId, project])
   const entries = useMemo(() => projectOrg.filter((e) => e.projectId === projectId), [projectOrg, projectId])
   const { roots, parentOf } = useMemo(() => buildTree(team, entries), [team, entries])
 
   if (!currentUser) return <Navigate to="/" replace />   // signed out
   if (!canViewOrganisation(currentUser)) return <Navigate to="/home" replace />   // IT doesn't use the organisation chart
-  const canEdit = isManager(currentUser)
+  const canEdit = can(currentUser, project, 'org.edit')
 
   const taskCount = (m: AppUser) => tasks.filter((t) => t.projectId === projectId && t.assignedTo === m.email && t.status !== 'completed').length
   const count = (role: AppUser['role']) => team.filter((m) => m.role === role).length
