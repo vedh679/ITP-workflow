@@ -51,7 +51,7 @@ export default function HomePage() {
   // BMS core documents the project is behind on (the manager is prompted to update them)
   const behind = canAccessRegister(currentUser) ? pendingDocs(currentProjectId ?? '', bmsDocuments, projectDocuments) : []
   // ...and those due their 12-month review
-  const reviewDue = canAccessRegister(currentUser) ? reviewsDueIn(currentProjectId ?? '', projectDocuments) : []
+  const reviewDue = canAccessRegister(currentUser) ? reviewsDueIn(currentProjectId ?? '', projectDocuments, bmsDocuments) : []
 
   return (
     <div className="h-full overflow-y-auto">

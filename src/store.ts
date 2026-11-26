@@ -363,19 +363,19 @@ export const useAppStore = create<AppState>()(
           const revision = d.revision ?? 1
           const previous = { revision, templateVersion: d.adoptedVersion, fieldValues: d.fieldValues ?? {}, startedAt: d.revisionStartedAt ?? d.adoptedAt, endedAt: now, endedBy: by, note }
           return { ...d, adoptedVersion: toVersion, adoptedAt: now, adoptedBy: by, revision: revision + 1, revisionStartedAt: now, fieldValues: values,
-            fieldsUpdatedAt: now, fieldsUpdatedBy: by, lastEditedAt: now, updateDraft: undefined, versions: [...(d.versions ?? []), previous],
+            fieldsUpdatedAt: now, fieldsUpdatedBy: by, lastEditedAt: now, updateDraft: undefined, editDraft: undefined, versions: [...(d.versions ?? []), previous],
             history: [...d.history, { version: toVersion, at: now, by, note: `Updated to template v${toVersion} (revision ${revision + 1})${note ? ` — ${note}` : ''}` }] }
         }) }
       }),
-      // A review is also a new revision (content unchanged), and restarts the 12-month period
+      // A review that finds nothing to change keeps the same revision; it is logged and the next review date moves on
       reviewProjectDocument: (id, comment, by) => set((s) => {
         const now = new Date().toISOString()
         return { projectDocuments: s.projectDocuments.map((d) => {
           if (d.id !== id) return d
           const revision = d.revision ?? 1
-          return { ...nextRevision(d, by, now, `Reviewed — no changes${comment.trim() ? `: ${comment.trim()}` : ''}`), lastReviewedAt: now, lastReviewedBy: by,
+          return { ...d, lastReviewedAt: now, lastReviewedBy: by,
             reviews: [{ id: `prev-${Date.now()}`, at: now, by, revision, comment: comment.trim() }, ...(d.reviews ?? [])],
-            history: [...d.history, { version: d.adoptedVersion, at: now, by, note: `Reviewed, no changes — revision ${revision + 1}` }] }
+            history: [...d.history, { version: d.adoptedVersion, at: now, by, note: `Reviewed, no changes — still revision ${revision}${comment.trim() ? `: ${comment.trim()}` : ''}` }] }
         }) }
       }),
     }),

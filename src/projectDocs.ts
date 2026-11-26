@@ -99,9 +99,20 @@ export function registerReviewState(d: ProjectDocument, now = new Date()): Regis
   return days < 0 ? 'overdue' : days <= SOON_DAYS ? 'due-soon' : 'ok'
 }
 
-/** Active project documents whose review is overdue or due within a month */
-export const reviewsDueIn = (projectId: string, records: ProjectDocument[]) =>
-  projectDocsOf(records, projectId).filter((d) => registerReviewState(d) !== 'ok')
+/** Forms are held as a version reference only: they show the team which version to use, with nothing to fill in or review */
+export const isVersionOnly = (template?: BmsDocument) => template?.category === 'Form'
+
+/** Active project documents whose review is overdue or due within a month (Forms have no project review) */
+export const reviewsDueIn = (projectId: string, records: ProjectDocument[], templates: BmsDocument[]) =>
+  projectDocsOf(records, projectId).filter((d) => !isVersionOnly(templates.find((t) => t.id === d.bmsDocumentId)) && registerReviewState(d) !== 'ok')
+
+const compareVersions = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true })
+
+/** Why a new version number can't be used: it must be higher than every version the document has had */
+export function versionProblem(version: string, doc: BmsDocument): string {
+  const highest = [doc.version, ...(doc.revisions ?? []).map((r) => r.version)].sort(compareVersions).slice(-1)[0]
+  return compareVersions(version.trim(), highest) > 0 ? '' : `Version number must be higher than ${highest}.`
+}
 
 export const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
 

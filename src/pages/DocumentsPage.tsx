@@ -5,7 +5,7 @@ import AppHeader from '../components/AppHeader'
 import LibraryPicker from '../components/LibraryPicker'
 import DocumentUpdate from '../components/DocumentUpdate'
 import DocumentView from '../components/DocumentView'
-import { CORE_CATEGORIES, REGISTER_REVIEW_MONTHS, changesSince, docStatus, fmtDate, isActive, nextReviewDate, pendingDocs, pluralCategory, registerReviewState, reviewsDueIn, seqLabel, versionsOf, type DocStatus } from '../projectDocs'
+import { CORE_CATEGORIES, REGISTER_REVIEW_MONTHS, changesSince, docStatus, fmtDate, isActive, isVersionOnly, nextReviewDate, pendingDocs, pluralCategory, registerReviewState, reviewsDueIn, seqLabel, versionsOf, type DocStatus } from '../projectDocs'
 import { canAccessRegister, canManageProject } from '../access'
 import type { BmsCategory, DocBlock, ProjectDocument } from '../types'
 
@@ -86,7 +86,7 @@ export default function DocumentsPage() {
   const active = mine.filter(isActive).map(join)
   const archived = mine.filter((d) => !isActive(d)).map(join)
   const pending = pendingDocs(projectId, bmsDocuments, projectDocuments)
-  const dueReviews = reviewsDueIn(projectId, projectDocuments).map(join)
+  const dueReviews = reviewsDueIn(projectId, projectDocuments, bmsDocuments).map(join)
 
   const matches = (j: ReturnType<typeof join>, q: string) =>
     `${j.name} ${j.number} ${j.template?.content ?? ''}`.toLowerCase().includes(q.toLowerCase())
@@ -100,6 +100,7 @@ export default function DocumentsPage() {
   const selected = rows.find((r) => r.instance.id === selectedId) ?? rows[0] ?? null
   const inst = selected?.instance
   const tpl = selected?.template
+  const versionOnly = isVersionOnly(tpl)
 
   // Which version of the template the document is on, and the latest
   const allVersions = tpl ? versionsOf(tpl) : []
@@ -108,7 +109,8 @@ export default function DocumentsPage() {
   const shown = showLatest || !heldVersion ? latestVersion : heldVersion
   const changes = tpl && selected?.status === 'update' ? changesSince(tpl, inst?.adoptedVersion) : []
   const pastRevision = inst && viewingPast !== null ? inst.versions?.find((v) => v.revision === viewingPast) : undefined
-  const pastBlocks = pastRevision && tpl ? versionsOf(tpl).find((v) => v.version === pastRevision.templateVersion)?.blocks : undefined
+  // a past revision shows the content, name and number it was issued with
+  const pastVersion = pastRevision ? allVersions.find((v) => v.version === pastRevision.templateVersion) : undefined
 
   const canFill = manager || currentUser.projectIds.includes(projectId)
   const openResult = (j: ReturnType<typeof join>) => {
@@ -273,7 +275,7 @@ export default function DocumentsPage() {
                   <div className="flex items-center gap-2 mt-1.5">
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLE[j.status].chip}`}>{STATUS_STYLE[j.status].label}</span>
                     <span className="text-xs text-slate-500">{j.status === 'update' ? `v${j.instance.adoptedVersion} → v${j.template?.version}` : `template v${j.instance.adoptedVersion}`}</span>
-                    {registerReviewState(j.instance) !== 'ok' && (
+                    {!isVersionOnly(j.template) && registerReviewState(j.instance) !== 'ok' && (
                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${registerReviewState(j.instance) === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>{registerReviewState(j.instance) === 'overdue' ? 'Review overdue' : 'Review due'}</span>
                     )}
                   </div>
@@ -285,7 +287,7 @@ export default function DocumentsPage() {
           {/* Detail */}
           <main className="flex-1 overflow-y-auto p-8">
             {updating && selected && inst && tpl ? (
-              <DocumentUpdate key={`${inst.id}-${tpl.version}`} name={selected.name} number={selected.number} instance={inst} template={tpl} canWork={manager}
+              <DocumentUpdate key={`${inst.id}-${tpl.version}`} name={selected.name} number={selected.number} instance={inst} template={tpl} canWork={manager} reference={versionOnly}
                 onCancel={() => setUpdating(false)}
                 onSaveDraft={(vals) => { saveProjectDocUpdateDraft(inst.id, tpl.version, vals, currentUser.name); setNotice('Draft saved. You can carry on with the update later.') }}
                 onDiscardDraft={() => { discardProjectDocUpdateDraft(inst.id); setNotice('Draft discarded.') }}
@@ -293,7 +295,7 @@ export default function DocumentsPage() {
                   applyProjectDocUpdate(inst.id, tpl.version, vals, currentUser.name, note)
                   const next = new Date(); next.setMonth(next.getMonth() + REGISTER_REVIEW_MONTHS)
                   setUpdating(false); setShowLatest(false)
-                  setNotice(`"${selected.name}" is now revision ${(inst.revision ?? 1) + 1} on template v${tpl.version}. Revision ${inst.revision ?? 1} is kept. Next review due ${fmtDate(next)}.`)
+                  setNotice(`"${selected.name}" is now revision ${(inst.revision ?? 1) + 1} on template v${tpl.version}. Revision ${inst.revision ?? 1} is kept.${versionOnly ? '' : ` Next review due ${fmtDate(next)}.`}`)
                 }} />
             ) : selected && inst && shown ? (
               <div className={`${shown.blocks ? 'max-w-4xl' : 'max-w-2xl'} space-y-5`}>
@@ -305,11 +307,11 @@ export default function DocumentsPage() {
                       Name and number come from the BMS library and can't be changed here · <span className="font-semibold text-slate-300">Revision {inst.revision ?? 1}</span> on template v{inst.adoptedVersion}
                       {inst.createdAt && ` · added ${new Date(inst.createdAt).toLocaleDateString()} by ${inst.adoptedBy}`}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
-                      Last edited {fmtDate(new Date(inst.lastEditedAt ?? inst.adoptedAt))} · next review due <span className="font-semibold text-slate-300">{fmtDate(nextReviewDate(inst))}</span>
+                    {versionOnly ? <p className="text-xs text-slate-400 mt-1">Version reference: use this version of the form. There is nothing to fill in here and no project review.</p> : <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                      {inst.lastReviewedAt && `Last reviewed ${fmtDate(new Date(inst.lastReviewedAt))} by ${inst.lastReviewedBy} · `}Last edited {fmtDate(new Date(inst.lastEditedAt ?? inst.adoptedAt))} · next review due <span className="font-semibold text-slate-300">{fmtDate(nextReviewDate(inst))}</span>
                       {registerReviewState(inst) !== 'ok' && <span className={`font-semibold px-2 py-0.5 rounded-full ${registerReviewState(inst) === 'overdue' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>{registerReviewState(inst) === 'overdue' ? 'Review overdue' : 'Review due soon'}</span>}
                       {manager && isActive(inst) && !reviewing && <button onClick={() => setReviewing({ comment: '' })} className="font-semibold text-coral-dark hover:underline">Review now</button>}
-                    </p>
+                    </p>}
                   </div>
                   {manager && (
                     <div className="flex gap-2">
@@ -318,22 +320,24 @@ export default function DocumentsPage() {
                             <button onClick={() => { if (window.confirm(`Archive "${selected.name}" (${seqLabel(inst.sequence)})? It leaves the active register but is kept, and can be restored.`)) { updateProjectDocument(inst.id, { status: 'archived' }); setNotice(`"${selected.name}" archived.`) } }}
                               className="px-4 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold">Archive</button>
                           </>
-                        : <button onClick={() => { updateProjectDocument(inst.id, { status: 'active' }); setShowArchived(false); setNotice(`"${selected.name}" restored.`) }}
+                        : <button onClick={() => {
+                              if (versionOnly && active.some((j) => j.instance.bmsDocumentId === inst.bmsDocumentId)) { window.alert('This form is already in the register.'); return }
+                              updateProjectDocument(inst.id, { status: 'active' }); setShowArchived(false); setNotice(`"${selected.name}" restored.`) }}
                             className="px-4 py-1.5 rounded-full bg-ink text-white text-sm font-semibold">Restore</button>}
                     </div>
                   )}
                 </div>
 
-                {reviewing && manager && isActive(inst) && (
+                {reviewing && manager && !versionOnly && isActive(inst) && (
                   <div className="rounded-3xl bg-white border border-ink shadow-float px-5 py-4 space-y-3">
                     <div>
                       <h3 className="text-sm font-bold text-ink">Review {selected.name} ({seqLabel(inst.sequence)})</h3>
-                      <p className="text-xs text-slate-400">Read through the document below. If it's still right, confirm the review. If something needs changing, edit it and save — that restarts the 12 months too.</p>
+                      <p className="text-xs text-slate-400">Read through the document below. If it's still right, confirm the review. The revision number stays the same and the next review moves 12 months on. If something needs changing, edit it and save instead.</p>
                     </div>
                     <textarea rows={2} value={reviewing.comment} onChange={(e) => setReviewing({ comment: e.target.value })} placeholder="Review notes — what you checked (optional)"
                       className="w-full bg-white border border-slate-700 rounded-2xl px-3 py-2 text-sm text-ink placeholder-slate-500 focus:outline-none focus:border-ink resize-none" />
                     <div className="flex gap-2 flex-wrap">
-                      <button onClick={() => { reviewProjectDocument(inst.id, reviewing.comment, currentUser.name); const next = new Date(); next.setMonth(next.getMonth() + REGISTER_REVIEW_MONTHS); setReviewing(null); setNotice(`Review recorded as revision ${(inst.revision ?? 1) + 1} — no changes needed. Next review due ${fmtDate(next)}.`) }}
+                      <button onClick={() => { reviewProjectDocument(inst.id, reviewing.comment, currentUser.name); const next = new Date(); next.setMonth(next.getMonth() + REGISTER_REVIEW_MONTHS); setReviewing(null); setNotice(`Review recorded — no changes, so this stays revision ${inst.revision ?? 1}. Next review due ${fmtDate(next)}.`) }}
                         className="px-4 py-2 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold">No changes needed — confirm reviewed</button>
                       <button onClick={() => setReviewing(null)} className="px-4 py-2 rounded-full bg-slate-800 text-slate-200 text-sm font-semibold">Close</button>
                     </div>
@@ -361,8 +365,11 @@ export default function DocumentsPage() {
                     {manager ? (
                       <div className="flex items-center gap-3 flex-wrap">
                         <button onClick={() => { setUpdating(true); setViewingPast(null); setReviewing(null) }}
-                          className="px-5 py-2 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">{inst.updateDraft?.toVersion === tpl.version ? 'Continue the update' : 'Review & update'}</button>
-                        <span className="text-xs text-amber-700/80">You'll see your existing entries and everything new from the template side by side, check it, edit it, then apply it as revision {(inst.revision ?? 1) + 1}.{inst.updateDraft?.toVersion === tpl.version && ' A draft is saved.'}</span>
+                          className="px-5 py-2 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors">{versionOnly ? `Review & adopt v${tpl.version}` : inst.updateDraft ? 'Continue the update' : 'Review & update'}</button>
+                        <span className="text-xs text-amber-700/80">{versionOnly
+                          ? `You'll see what changed in the form, then adopt it as revision ${(inst.revision ?? 1) + 1}.`
+                          : `You'll see your existing entries and everything new from the template side by side, check it, edit it, then apply it as revision ${(inst.revision ?? 1) + 1}.`}
+                          {!versionOnly && inst.updateDraft && (inst.updateDraft.toVersion === tpl.version ? ' A draft is saved.' : ` Your draft for v${inst.updateDraft.toVersion} will be carried forward.`)}</span>
                       </div>
                     ) : <p className="text-xs text-amber-700/80">Waiting for the project manager to update.</p>}
                   </div>
@@ -374,10 +381,10 @@ export default function DocumentsPage() {
                       <p className="text-sm text-slate-300 flex-1">Viewing <span className="font-semibold text-ink">revision {pastRevision.revision}</span> (template v{pastRevision.templateVersion}) — kept exactly as it was until {new Date(pastRevision.endedAt).toLocaleDateString()}. Read-only.</p>
                       <button onClick={() => setViewingPast(null)} className="px-4 py-1.5 rounded-full bg-ink text-white text-sm font-semibold">Back to the current revision</button>
                     </div>
-                    {pastBlocks
-                      ? <FillableDocument key={`past-${pastRevision.revision}`} title={selected.name}
-                          meta={[selected.number, seqLabel(inst.sequence), `revision ${pastRevision.revision}`, `template v${pastRevision.templateVersion}`].join(' · ')}
-                          blocks={pastBlocks} savedValues={pastRevision.fieldValues} canEdit={false} onSave={() => {}} onSaveDraft={() => {}} onDiscardDraft={() => {}} />
+                    {pastVersion?.blocks
+                      ? <FillableDocument key={`past-${pastRevision.revision}`} title={pastVersion.title}
+                          meta={[pastVersion.docNumber, seqLabel(inst.sequence), `revision ${pastRevision.revision}`, `template v${pastRevision.templateVersion}`].join(' · ')}
+                          blocks={pastVersion.blocks} savedValues={pastRevision.fieldValues} canEdit={false} onSave={() => {}} onSaveDraft={() => {}} onDiscardDraft={() => {}} />
                       : <p className="text-sm text-slate-500">This revision's layout is no longer available.</p>}
                   </>
                 ) : (
@@ -393,7 +400,9 @@ export default function DocumentsPage() {
                   )}
                 </div>
 
-                {shown.blocks ? (
+                {shown.blocks && versionOnly ? (
+                  <DocumentView title={selected.name} meta={[selected.number, `version ${shown.version}`, tpl?.category].filter(Boolean).join(' · ')} blocks={shown.blocks} />
+                ) : shown.blocks ? (
                   <FillableDocument key={`${inst.id}-${shown.version}-${inst.fieldsUpdatedAt ?? ''}-${inst.editDraft?.savedAt ? 'd' : 'n'}`}
                     title={selected.name}
                     meta={[selected.number, seqLabel(inst.sequence), `template v${shown.version}`, tpl?.category].filter(Boolean).join(' · ')}
@@ -460,7 +469,7 @@ export default function DocumentsPage() {
             const created = useAppStore.getState().projectDocuments.find((d) => d.id === id)
             const t = useAppStore.getState().bmsDocuments.find((b) => b.id === created?.bmsDocumentId)
             setPicker(false); setCategory(t?.category ?? null); setSelectedId(id); setShowLatest(false); setShowArchived(false)
-            setNotice(`Added "${t?.title}" (${seqLabel(created?.sequence ?? 1)}) to the register. Fill in the project fields below.`)
+            setNotice(`Added "${t?.title}" (${seqLabel(created?.sequence ?? 1)}) to the register.${isVersionOnly(t) ? ' The team can now see which version to use.' : ' Fill in the project fields below.'}`)
           }} />
       )}
     </div>

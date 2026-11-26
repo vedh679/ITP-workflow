@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import DocumentView, { TONES, type Annotation } from './DocumentView'
-import { carryValues, droppedEntries, mergeBlocks } from '../docDiff'
+import { carryValues, droppedEntries, lossWarnings, mergeBlocks } from '../docDiff'
 import { changesSince, seqLabel, versionsOf } from '../projectDocs'
 import type { BmsDocument, ProjectDocument } from '../types'
 
@@ -10,6 +10,7 @@ interface Props {
   instance: ProjectDocument
   template: BmsDocument
   canWork: boolean
+  reference?: boolean   // a version-only document: nothing to carry or edit, just adopt the new version
   onSaveDraft: (values: Record<string, string>) => void
   onDiscardDraft: () => void
   onApply: (values: Record<string, string>, note: string) => void
@@ -19,7 +20,7 @@ interface Props {
 // Bringing a project document up to a new template version. The new version is laid out with everything
 // the template now contains AND everything the project had entered. What is new, changed, removed or already
 // there is colour-coded; the project manager checks it, edits it, and applying it makes it the next revision.
-export default function DocumentUpdate({ name, number, instance, template, canWork, onSaveDraft, onDiscardDraft, onApply, onCancel }: Props) {
+export default function DocumentUpdate({ name, number, instance, template, canWork, reference, onSaveDraft, onDiscardDraft, onApply, onCancel }: Props) {
   const versions = versionsOf(template)
   const oldVersion = versions.find((v) => v.version === instance.adoptedVersion)
   const newVersion = versions[versions.length - 1]
@@ -28,13 +29,20 @@ export default function DocumentUpdate({ name, number, instance, template, canWo
   const revision = instance.revision ?? 1
 
   const draft = instance.updateDraft && instance.updateDraft.toVersion === newVersion.version ? instance.updateDraft : undefined
-  const [values, setValues] = useState<Record<string, string>>(() => draft?.values ?? carryValues(oldBlocks, newBlocks, instance.fieldValues ?? {}))
+  // A draft the library has since overtaken is carried forward rather than lost; otherwise start from the
+  // current entries, including any saved draft of project details
+  const overtaken = !reference && instance.updateDraft && !draft ? instance.updateDraft : undefined
+  const source = overtaken
+    ? { blocks: versions.find((v) => v.version === overtaken.toVersion)?.blocks ?? oldBlocks, values: overtaken.values }
+    : { blocks: oldBlocks, values: reference ? {} : { ...instance.fieldValues, ...instance.editDraft?.values } }
+  const [values, setValues] = useState<Record<string, string>>(() => draft?.values ?? carryValues(source.blocks, newBlocks, source.values))
   const [onlyChanges, setOnlyChanges] = useState(false)
   const [checked, setChecked] = useState(false)
   const [note, setNote] = useState('')
 
   const merged = useMemo(() => mergeBlocks(oldBlocks, newBlocks), [oldBlocks, newBlocks])
-  const dropped = droppedEntries(oldBlocks, newBlocks, instance.fieldValues ?? {})
+  const dropped = droppedEntries(source.blocks, newBlocks, source.values)
+  const losses = lossWarnings(source.blocks, newBlocks, source.values)
   const changes = changesSince(template, instance.adoptedVersion)
 
   const hasEntry = (id: string) => !!values[id]?.trim()
@@ -67,6 +75,8 @@ export default function DocumentUpdate({ name, number, instance, template, canWo
           <span className="font-mono">{number}</span> · {seqLabel(instance.sequence)} · from template v{instance.adoptedVersion} (revision {revision}) to <span className="font-semibold text-ink">template v{newVersion.version}</span> (revision {revision + 1})
         </p>
         {draft && <p className="text-xs text-amber-700 mt-1">Resuming your saved draft from {new Date(draft.savedAt).toLocaleString()}.</p>}
+        {overtaken && <p className="text-xs text-amber-700 mt-1">Your saved draft for v{overtaken.toVersion} was overtaken by v{newVersion.version}. What you had in it has been carried into this update.</p>}
+        {!reference && !draft && !overtaken && instance.editDraft && <p className="text-xs text-amber-700 mt-1">Your saved draft of project details is included below.</p>}
       </div>
 
       {/* What the library changed */}
@@ -81,7 +91,7 @@ export default function DocumentUpdate({ name, number, instance, template, canWo
 
       {/* Legend */}
       <div className="flex items-center gap-3 flex-wrap">
-        {(['existing', 'new', 'changed', 'removed'] as const).map((k) => (
+        {(['existing', 'new', 'changed', 'removed'] as const).filter((k) => !reference || k !== 'existing').map((k) => (
           <span key={k} className="inline-flex items-center gap-2 text-xs text-slate-300 rounded-full pl-1 pr-3 py-1" style={{ background: TONES[k].bg, border: `1px solid ${TONES[k].border}55` }}>
             <span className="text-[9px] font-bold tracking-wider text-white px-2 py-0.5 rounded-full" style={{ background: TONES[k].solid }}>{TONES[k].label}</span>
             {TONES[k].meaning} <span className="font-bold text-ink">{counts[k]}</span>
@@ -93,6 +103,7 @@ export default function DocumentUpdate({ name, number, instance, template, canWo
       </div>
 
       {nothingChanged && <p className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-sm text-slate-300">The layout of this template didn't change between these versions, so your existing entries carry over as they are.</p>}
+      {losses.map((w) => <p key={w} className="rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">{w}</p>)}
       {dropped.length > 0 && (
         <p className="rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
           {dropped.length} entr{dropped.length === 1 ? 'y' : 'ies'} belong to content that was removed from the template ({dropped.map((d) => d.label || 'a table').join(', ')}). {dropped.length === 1 ? 'It' : 'They'} won't appear in the new revision, but stay in revision {revision}, which is kept.
@@ -101,7 +112,7 @@ export default function DocumentUpdate({ name, number, instance, template, canWo
 
       <DocumentView title={name} meta={[number, seqLabel(instance.sequence), `updating to template v${newVersion.version}`, template.category].join(' · ')}
         blocks={merged.map((m) => m.block)} values={values} annotate={annotate}
-        onChange={canWork ? (id, v) => setValues((cur) => ({ ...cur, [id]: v })) : undefined} />
+        onChange={canWork && !reference ? (id, v) => setValues((cur) => ({ ...cur, [id]: v })) : undefined} />
 
       {/* Check and apply */}
       <div className="sticky bottom-0 rounded-3xl bg-white border border-slate-700 shadow-float px-5 py-4 space-y-3">
@@ -109,17 +120,17 @@ export default function DocumentUpdate({ name, number, instance, template, canWo
           <>
             <label className="flex items-start gap-2 text-sm text-ink cursor-pointer">
               <input type="checkbox" className="mt-1" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
-              <span>I've checked the new and changed content, and my existing entries, and made any edits needed.</span>
+              <span>{reference ? "I've checked what changed in this version of the form." : "I've checked the new and changed content, and my existing entries, and made any edits needed."}</span>
             </label>
             <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note for the revision history (optional)"
               className="w-full bg-white border border-slate-700 rounded-2xl px-3 py-2 text-sm text-ink placeholder-slate-500 focus:outline-none focus:border-ink" />
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => onApply(finalValues(), note.trim())} disabled={!checked}
-                className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">Apply update — make this revision {revision + 1}</button>
-              <button onClick={() => onSaveDraft(finalValues())} className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold">Save draft</button>
+                className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">{reference ? `Adopt v${newVersion.version}` : 'Apply update'} — make this revision {revision + 1}</button>
+              {!reference && <button onClick={() => onSaveDraft(finalValues())} className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold">Save draft</button>}
               {draft && <button onClick={() => { onDiscardDraft(); onCancel() }} className="px-4 py-2.5 rounded-full bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold">Discard draft</button>}
               <button onClick={onCancel} className="px-4 py-2.5 rounded-full text-slate-400 hover:text-ink text-sm font-semibold">Cancel</button>
-              <span className="text-xs text-slate-500 ml-auto">Revision {revision} is kept as it was. The 12-month review period restarts when you apply.</span>
+              <span className="text-xs text-slate-500 ml-auto">Revision {revision} is kept as it was.{reference ? '' : ' The 12-month review period restarts when you apply.'}</span>
             </div>
           </>
         ) : <p className="text-sm text-slate-500">Only the project manager can apply this update.</p>}

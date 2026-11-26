@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useAppStore } from '../store'
 import DocumentView from './DocumentView'
-import { CORE_CATEGORIES, libraryTemplates, nextSequence, projectDocsOf, seqLabel } from '../projectDocs'
+import { CORE_CATEGORIES, isVersionOnly, libraryTemplates, nextSequence, projectDocsOf, seqLabel } from '../projectDocs'
 import type { BmsCategory, ProjectDocument } from '../types'
 
 interface Props {
@@ -31,9 +31,11 @@ export default function LibraryPicker({ projectId, onClose, onCreated }: Props) 
     (category === 'All' || t.category === category) &&
     `${t.title} ${t.docNumber} ${t.description}`.toLowerCase().includes(search.toLowerCase()))
   const picked = templates.find((t) => t.id === pickedId) ?? null
+  // a Form is only a version reference, so a project holds it once
+  const alreadyHeld = !!picked && isVersionOnly(picked) && mine.some((d) => d.bmsDocumentId === picked.id)
 
   const create = () => {
-    if (!picked) return
+    if (!picked || alreadyHeld) return
     const now = new Date().toISOString()
     const doc: ProjectDocument = {
       id: `pdoc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`, projectId, bmsDocumentId: picked.id,
@@ -97,10 +99,12 @@ export default function LibraryPicker({ projectId, onClose, onCreated }: Props) 
                     <p className="text-xs text-slate-500 mt-0.5">
                       <span className="font-mono">{picked.docNumber || 'No number'}</span> · {seqLabel(nextSequence(projectDocuments, projectId, picked.id))} in this project · template v{picked.version}
                     </p>
-                    <p className="text-xs text-slate-400 mt-1">The name and number always match the BMS library. You'll fill in the project fields next, and you'll be told when the template gets a newer version.</p>
+                    <p className="text-xs text-slate-400 mt-1">{isVersionOnly(picked)
+                      ? 'A form is held as a version reference: the team sees which version to use. You\'ll be told when the library has a newer one.'
+                      : 'The name and number always match the BMS library. You\'ll fill in the project fields next, and you\'ll be told when the template gets a newer version.'}</p>
                   </div>
-                  <button onClick={create}
-                    className="px-6 py-2.5 rounded-full bg-ink hover:bg-ink-soft text-white text-sm font-semibold transition-colors whitespace-nowrap">Add to register</button>
+                  <button onClick={create} disabled={alreadyHeld}
+                    className="px-6 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors whitespace-nowrap">{alreadyHeld ? 'Already in the register' : 'Add to register'}</button>
                 </div>
               </>
             ) : (

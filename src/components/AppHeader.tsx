@@ -14,9 +14,9 @@ export default function AppHeader({ active }: { active: Active }) {
   const { currentProjectId, bmsDocuments, projectDocuments } = useAppStore()
   if (!currentUser) return null
 
-  // Documents in the manager's project needing attention: a newer template to update to, or a 12-month review due
-  const docsBehind = currentUser.role === 'manager' && currentProjectId
-    ? pendingDocs(currentProjectId, bmsDocuments, projectDocuments).length + reviewsDueIn(currentProjectId, projectDocuments).length : 0
+  // Documents in this project needing attention, shown to the whole project team: a newer template to update to, or a 12-month review due
+  const docsBehind = canAccessRegister(currentUser) && currentProjectId
+    ? pendingDocs(currentProjectId, bmsDocuments, projectDocuments).length + reviewsDueIn(currentProjectId, projectDocuments, bmsDocuments).length : 0
 
   const signOut = () => {
     useAppStore.getState().setCurrentUser(null)

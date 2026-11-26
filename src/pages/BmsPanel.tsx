@@ -5,7 +5,7 @@ import { useAppStore as useStore } from '../store'
 import { CORE_CATEGORIES } from '../projectDocs'
 import { blocksToText, contentToBlocks, newBlockId } from '../docBlocks'
 import { DEFAULT_REVIEW_MONTHS, fmtDate, nextReviewDue, reviewState, reviewsDue } from '../bmsReview'
-import { seqLabel, usageOf } from '../projectDocs'
+import { seqLabel, usageOf, versionProblem } from '../projectDocs'
 import DocumentEditor from '../components/DocumentEditor'
 import DocumentView from '../components/DocumentView'
 
@@ -242,11 +242,11 @@ export default function BmsPanel() {
   const isExisting = !!draft && docs.some((d) => d.id === draft.id)
   // Core documents start as drafts; a version that is already published needs a new version number and a change note
   const publishedExisting = isExisting && !!selected && selected.status !== 'draft'
-  const versionClash = publishedExisting && !!draft && draft.version.trim() === selected!.version
+  const versionIssue = publishedExisting && draft ? versionProblem(draft.version, selected!) : ''
   const canDraft = !!draft && !!draft.title.trim() && !!draft.version.trim()
   const canSave = canDraft &&
     (!isChecklist || draft!.content.split('\n').some((l) => l.trim())) &&
-    (!publishedExisting || (!!draft!.changeNote?.trim() && !versionClash))
+    (!publishedExisting || (!!draft!.changeNote?.trim() && !versionIssue))
 
   const startNew = (category: BmsCategory = 'Policy') => { setDraft(newBmsDoc(isChecklist ? CHECKLIST : category)); setSelectedId(null); setReviewing(null) }
   const startEdit = () => {
@@ -369,9 +369,10 @@ export default function BmsPanel() {
   }
   const remove = () => {
     // a template that projects have built documents from can't be deleted out from under them
-    const inUse = selected && !isChecklist ? usageOf(selected.id, projectDocuments) : []
+    // archived copies count too: their past revisions are rebuilt from this template's versions
+    const inUse = selected && !isChecklist ? projectDocuments.filter((d) => d.bmsDocumentId === selected.id) : []
     if (selected && inUse.length > 0) {
-      window.alert(`"${selected.title}" is used by ${inUse.length} project document${inUse.length === 1 ? '' : 's'} (${[...new Set(inUse.map((d) => projects.find((p) => p.id === d.projectId)?.name ?? 'a project'))].join(', ')}), so it can't be deleted. Publish a new version instead, or have the projects archive their documents first.`)
+      window.alert(`"${selected.title}" is used by ${inUse.length} project document${inUse.length === 1 ? '' : 's'} (${[...new Set(inUse.map((d) => projects.find((p) => p.id === d.projectId)?.name ?? 'a project'))].join(', ')}), including any archived ones, so it can't be deleted. Publish a new version instead.`)
       return
     }
     if (!selected || !window.confirm(`Delete "${selected.title}" and all its archived versions?`)) return
@@ -485,7 +486,7 @@ export default function BmsPanel() {
               <div>
                 <label className={label}>What changed from v{selected?.version}? {isChecklist ? '(required)' : '(required to publish)'}</label>
                 <textarea className={`${input} h-20`} placeholder={isChecklist ? 'e.g. Added first aid kit check' : 'e.g. Added section 6 – records retention; updated sign-off roles'} value={draft.changeNote ?? ''} onChange={(e) => setDraft({ ...draft, changeNote: e.target.value })} />
-                {versionClash && <p className="text-xs text-red-400 mt-1">Version number must differ from the current version.</p>}
+                {versionIssue && <p className="text-xs text-red-400 mt-1">{versionIssue}</p>}
                 <p className="text-xs text-slate-500 mt-1">{isChecklist ? `Saving archives v${selected?.version} and keeps it in the version history.` : `Publishing archives v${selected?.version} and keeps it in the version history. Save as a draft to keep working without rolling anything out.`}</p>
               </div>
             )}
@@ -567,9 +568,10 @@ export default function BmsPanel() {
               <div className="rounded-3xl bg-amber-50 border border-amber-100 px-5 py-4 space-y-2">
                 <p className="text-sm font-semibold text-amber-700">Draft v{selected.pending.version} saved — not published</p>
                 <p className="text-xs text-amber-700/80">Saved by {selected.pending.savedBy} on {new Date(selected.pending.savedAt).toLocaleString()}. Projects are still on v{selected.version} until you publish.</p>
+                {versionProblem(selected.pending.version, selected) && <p className="text-xs text-red-600">{versionProblem(selected.pending.version, selected)}</p>}
                 {selected.pending.changeNote ? <p className="text-xs text-amber-700">What changed: {selected.pending.changeNote}</p> : <p className="text-xs text-amber-700">Add a change note (Edit draft) before publishing.</p>}
                 <div className="flex gap-2 flex-wrap pt-1">
-                  <button onClick={publishSaved} disabled={!selected.pending.changeNote.trim()} className="px-5 py-2 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">Publish v{selected.pending.version}</button>
+                  <button onClick={publishSaved} disabled={!selected.pending.changeNote.trim() || !!versionProblem(selected.pending.version, selected)} className="px-5 py-2 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">Publish v{selected.pending.version}</button>
                   <button onClick={startEdit} className="px-4 py-2 rounded-full bg-white border border-amber-100 hover:bg-amber-100 text-amber-700 text-sm font-semibold">Edit draft</button>
                   <button onClick={discardPending} className="px-4 py-2 rounded-full bg-white border border-amber-100 hover:bg-amber-100 text-amber-700 text-sm font-semibold">Discard draft</button>
                 </div>
