@@ -10,6 +10,7 @@ interface Props {
   instance: ProjectDocument
   template: BmsDocument
   canWork: boolean
+  canApprove: boolean   // has "Approve & issue"; otherwise the update is submitted for approval
   reference?: boolean   // a version-only document: nothing to carry or edit, just adopt the new version
   onSaveDraft: (values: Record<string, string>) => void
   onDiscardDraft: () => void
@@ -20,7 +21,7 @@ interface Props {
 // Bringing a project document up to a new template version. The new version is laid out with everything
 // the template now contains AND everything the project had entered. What is new, changed, removed or already
 // there is colour-coded; the project manager checks it, edits it, and applying it makes it the next revision.
-export default function DocumentUpdate({ name, number, instance, template, canWork, reference, onSaveDraft, onDiscardDraft, onApply, onCancel }: Props) {
+export default function DocumentUpdate({ name, number, instance, template, canWork, canApprove, reference, onSaveDraft, onDiscardDraft, onApply, onCancel }: Props) {
   const versions = versionsOf(template)
   const oldVersion = versions.find((v) => v.version === instance.adoptedVersion)
   const newVersion = versions[versions.length - 1]
@@ -126,11 +127,11 @@ export default function DocumentUpdate({ name, number, instance, template, canWo
               className="w-full bg-white border border-slate-700 rounded-2xl px-3 py-2 text-sm text-ink placeholder-slate-500 focus:outline-none focus:border-ink" />
             <div className="flex items-center gap-2 flex-wrap">
               <button onClick={() => onApply(finalValues(), note.trim())} disabled={!checked}
-                className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">{reference ? `Adopt v${newVersion.version}` : 'Apply update'} — make this revision {revision + 1}</button>
+                className="px-5 py-2.5 rounded-full bg-ink hover:bg-ink-soft disabled:opacity-40 text-white text-sm font-semibold transition-colors">{canApprove ? `Approve & issue as revision ${revision + 1}` : 'Submit for approval'}</button>
               {!reference && <button onClick={() => onSaveDraft(finalValues())} className="px-4 py-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold">Save draft</button>}
               {draft && <button onClick={() => { onDiscardDraft(); onCancel() }} className="px-4 py-2.5 rounded-full bg-red-50 hover:bg-red-100 text-red-600 text-sm font-semibold">Discard draft</button>}
               <button onClick={onCancel} className="px-4 py-2.5 rounded-full text-slate-400 hover:text-ink text-sm font-semibold">Cancel</button>
-              <span className="text-xs text-slate-500 ml-auto">Revision {revision} is kept as it was.{reference ? '' : ' The 12-month review period restarts when you apply.'}</span>
+              <span className="text-xs text-slate-500 ml-auto">{canApprove ? `Revision ${revision} is kept as it was.` : `Revision ${revision} stays current until this is approved.`}</span>
             </div>
           </>
         ) : <p className="text-sm text-slate-500">Only the project manager can apply this update.</p>}

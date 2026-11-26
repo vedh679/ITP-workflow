@@ -7,6 +7,7 @@ import AdminPage from './pages/AdminPage'
 import DocumentsPage from './pages/DocumentsPage'
 import OrganisationPage from './pages/OrganisationPage'
 import TimesheetPage from './pages/TimesheetPage'
+import ProjectAdminPage from './pages/ProjectAdminPage'
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/organisation" element={<OrganisationPage />} />
         <Route path="/timesheet" element={<TimesheetPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/project-admin" element={<ProjectAdminPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </div>

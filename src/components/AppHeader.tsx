@@ -2,21 +2,22 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../store'
 import Logo from './Logo'
 import ProjectSwitcher from './ProjectSwitcher'
-import { pendingDocs, reviewsDueIn } from '../projectDocs'
-import { canAccessRegister, canAccessTasks, canAccessTimesheet, canViewOrganisation, isCentral } from '../access'
+import { pendingDocs, projectDocsOf, reviewsDueIn } from '../projectDocs'
+import { canAccessRegister, canAccessTasks, canAccessTimesheet, canViewOrganisation, isCentral, isProjectAdmin, canApproveIssue } from '../access'
 
-type Active = 'none' | 'overview' | 'tasks' | 'documents' | 'organisation' | 'timesheet' | 'admin'
+type Active = 'none' | 'overview' | 'tasks' | 'documents' | 'organisation' | 'timesheet' | 'admin' | 'team'
 
 // Shared top bar: logo + project switcher (left), pill navigation (centre), user (right)
 export default function AppHeader({ active }: { active: Active }) {
   const navigate = useNavigate()
   const currentUser = useAppStore((s) => s.currentUser)
-  const { currentProjectId, bmsDocuments, projectDocuments } = useAppStore()
+  const { currentProjectId, bmsDocuments, projectDocuments, projects } = useAppStore()
   if (!currentUser) return null
 
   // Documents in this project needing attention, shown to the whole project team: a newer template to update to, or a 12-month review due
   const docsBehind = canAccessRegister(currentUser) && currentProjectId
-    ? pendingDocs(currentProjectId, bmsDocuments, projectDocuments).length + reviewsDueIn(currentProjectId, projectDocuments, bmsDocuments).length : 0
+    ? pendingDocs(currentProjectId, bmsDocuments, projectDocuments).length + reviewsDueIn(currentProjectId, projectDocuments, bmsDocuments).length
+      + (canApproveIssue(currentUser, projects.find((p) => p.id === currentProjectId)) ? projectDocsOf(projectDocuments, currentProjectId).filter((d) => d.submission).length : 0) : 0
 
   const signOut = () => {
     useAppStore.getState().setCurrentUser(null)
@@ -30,6 +31,7 @@ export default function AppHeader({ active }: { active: Active }) {
     ...(canAccessRegister(currentUser) ? [{ key: 'documents' as const, label: 'Document Register', path: '/documents', badge: docsBehind }] : []),
     ...(canViewOrganisation(currentUser) ? [{ key: 'organisation' as const, label: 'Organisation', path: '/organisation' }] : []),
     ...(canAccessTimesheet(currentUser) ? [{ key: 'timesheet' as const, label: 'Timesheet', path: '/timesheet' }] : []),
+    ...(isProjectAdmin(currentUser, projects.find((p) => p.id === currentProjectId)) ? [{ key: 'team' as const, label: 'Admin', path: '/project-admin' }] : []),
     ...(isCentral(currentUser) ? [{ key: 'admin' as const, label: 'IT', path: '/admin' }] : []),
   ]
   // Project pages need a chosen project; the timesheet is personal and doesn't

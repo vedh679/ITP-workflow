@@ -16,6 +16,8 @@ export interface Project {
   name: string
   description: string
   code?: string          // short project code used on timesheets, e.g. BLD-A
+  adminId?: string       // the team member IT appointed to control who has access to this project
+  approverIds?: string[] // members the admin has given "Approve & issue" (the admin always has it)
 }
 
 export interface Signature {
@@ -350,6 +352,9 @@ export interface ProjectDocument {
   reviews?: ProjectDocReview[]           // newest first
   versions?: ProjectDocVersion[]         // earlier revisions, oldest first
   editDraft?: { values: Record<string, string>; savedAt: string; savedBy: string }  // project details saved as a draft, not yet a new revision
+  submission?: ProjectDocSubmission
+  returned?: { by: string; at: string; comment: string }   // sent back by the approver; the work is kept as a draft
+  issue?: ProjectDocIssue                // approval of the current revision
   updateDraft?: ProjectDocUpdateDraft    // an update to a newer template version that has been started but not applied
 }
 
@@ -361,6 +366,23 @@ export interface ProjectDocReview {
   comment: string
 }
 
+// A completed change waiting for someone with "Approve & issue". The current revision stays in use until then.
+export interface ProjectDocSubmission {
+  kind: 'edit' | 'update'                // project details edited, or a newer library version adopted
+  toVersion: string
+  values: Record<string, string>
+  note?: string
+  by: string
+  at: string
+}
+
+// Who prepared and who approved a revision
+export interface ProjectDocIssue {
+  preparedBy: string
+  approvedBy: string
+  approvedAt: string
+}
+
 // An earlier revision of a project document, kept exactly as it was
 export interface ProjectDocVersion {
   revision: number
@@ -370,6 +392,7 @@ export interface ProjectDocVersion {
   endedAt: string                        // when it was replaced
   endedBy: string
   note?: string
+  issue?: ProjectDocIssue
 }
 
 export interface ProjectDocUpdateDraft {

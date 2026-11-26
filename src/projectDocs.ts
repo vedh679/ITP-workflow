@@ -72,7 +72,7 @@ export const projectDocsOf = (records: ProjectDocument[], projectId: string) => 
 export function pendingDocs(projectId: string, templates: BmsDocument[], records: ProjectDocument[]) {
   return projectDocsOf(records, projectId)
     .map((instance) => ({ instance, template: templates.find((t) => t.id === instance.bmsDocumentId) }))
-    .filter((x): x is { instance: ProjectDocument; template: BmsDocument } => !!x.template && x.template.status !== 'draft' && docStatus(x.template, x.instance) === 'update')
+    .filter((x): x is { instance: ProjectDocument; template: BmsDocument } => !!x.template && x.template.status !== 'draft' && !x.instance.submission && docStatus(x.template, x.instance) === 'update')
     .map((x) => ({ ...x, status: 'update' as const }))
 }
 
